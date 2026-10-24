@@ -1,0 +1,6 @@
+{
+  "name": "Enregistrement & Suivi - Nouvelles Âmes",
+  "description": "Application ecclésiale d'enregistrement, de répartition en cellules de prière et de suivi des nouvelles âmes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

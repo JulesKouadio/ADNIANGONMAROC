@@ -1,0 +1,76 @@
+{
+  "entities": {
+    "NewSoul": {
+      "title": "NewSoul",
+      "description": "Fiche d'enregistrement et de suivi pastoral d'une nouvelle âme dans l'église",
+      "type": "object",
+      "properties": {
+        "receptionDate": { "type": "string", "maxLength": 30 },
+        "gender": { "type": "string", "enum": ["HOMME", "FEMME", "JEUNE", "ENFANT"] },
+        "lastName": { "type": "string", "maxLength": 100 },
+        "firstNames": { "type": "string", "maxLength": 150 },
+        "neighborhood": { "type": "string", "maxLength": 150 },
+        "addressLandmark": { "type": "string", "maxLength": 300 },
+        "phoneNumber": { "type": "string", "maxLength": 30 },
+        "prayerCell": { "type": "string", "maxLength": 100 },
+        "canReceiveVisit": { "type": "boolean" },
+        "visitDay": { "type": "string", "maxLength": 50 },
+        "visitTime": { "type": "string", "maxLength": 50 },
+        "visitRefusalReason": { "type": "string", "maxLength": 300 },
+        "knowsSomeoneInChurch": { "type": "boolean" },
+        "knownPersonName": { "type": "string", "maxLength": 150 },
+        "recordedByName": { "type": "string", "maxLength": 150 },
+        "recordedByPhone": { "type": "string", "maxLength": 30 },
+        "observation": { "type": "string", "maxLength": 1000 },
+        "followUpStatus": { "type": "string", "enum": ["nouveau", "contacte", "visite", "integre"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": [
+        "receptionDate",
+        "gender",
+        "lastName",
+        "firstNames",
+        "neighborhood",
+        "phoneNumber",
+        "prayerCell",
+        "canReceiveVisit",
+        "knowsSomeoneInChurch",
+        "recordedByName"
+      ]
+    },
+    "PrayerCell": {
+      "title": "PrayerCell",
+      "description": "Cellule de prière de quartier de l'église",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 100 },
+        "neighborhood": { "type": "string", "maxLength": 100 },
+        "leaderName": { "type": "string", "maxLength": 100 },
+        "leaderPhone": { "type": "string", "maxLength": 30 },
+        "meetingDay": { "type": "string", "maxLength": 50 },
+        "meetingTime": { "type": "string", "maxLength": 50 }
+      },
+      "required": [
+        "name",
+        "neighborhood",
+        "leaderName",
+        "leaderPhone"
+      ]
+    }
+  },
+  "firestore": {
+    "/newSouls/{soulId}": {
+      "schema": {
+        "$ref": "#/entities/NewSoul"
+      },
+      "description": "Registre des nouvelles âmes reçues à l'église"
+    },
+    "/prayerCells/{cellId}": {
+      "schema": {
+        "$ref": "#/entities/PrayerCell"
+      },
+      "description": "Cellules de prière de l'assemblée pour l'encadrement"
+    }
+  }
+}
