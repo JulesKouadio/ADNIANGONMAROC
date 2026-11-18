@@ -1,291 +1,269 @@
 import React from 'react';
-import { 
-  Users, 
-  HeartHandshake, 
-  Clock, 
-  Home, 
-  Download, 
-  UserPlus, 
-  ArrowRight
-} from 'lucide-react';
 import { useChurch } from '../context/ChurchContext';
+import {
+  ASSEMBLEE_DEPARTMENTS,
+  DISCIPLESHIP_QUALITIES,
+  WELCOME_CONTEXT_OPTIONS,
+} from '../data/churchConstants';
+import { isMonthlyReportLate } from '../utils/date';
 
-interface DashboardStatsProps {
-  onNavigateToRegister: () => void;
-  onNavigateToSouls: () => void;
-}
-
-export const DashboardStats: React.FC<DashboardStatsProps> = ({ 
-  onNavigateToRegister, 
-  onNavigateToSouls 
-}) => {
-  const { souls, prayerCells, exportToCsv } = useChurch();
+export const DashboardStats: React.FC = () => {
+  const { souls, teams, followUps } = useChurch();
 
   const total = souls.length;
+  const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
 
-  // Gender counts
-  const menCount = souls.filter(s => s.gender === 'HOMME').length;
-  const womenCount = souls.filter(s => s.gender === 'FEMME').length;
-  const youthCount = souls.filter(s => s.gender === 'JEUNE').length;
-  const childrenCount = souls.filter(s => s.gender === 'ENFANT').length;
+  // Modes & États
+  const expressCount = souls.filter((s) => s.accueilMode === 'express').length;
+  const longCount = souls.filter((s) => s.accueilMode === 'long').length;
+  const openCount = souls.filter((s) => s.followUpState === 'ouvert').length;
+  const waitingCount = souls.filter((s) => s.followUpState === 'en_attente_decision').length;
+  const closedCount = souls.filter((s) => s.followUpState === 'ferme').length;
 
-  // Visits
-  const visitAccepted = souls.filter(s => s.canReceiveVisit).length;
-  const visitRefused = souls.filter(s => !s.canReceiveVisit).length;
-  const visitRate = total > 0 ? Math.round((visitAccepted / total) * 100) : 0;
+  // Vie spirituelle
+  const christianCount = souls.filter((s) => s.isChristian).length;
+  const memberCount = souls.filter((s) => s.isAssemblyMember).length;
+  const baptizedInitialCount = souls.filter((s) => s.isBaptized).length;
 
-  // Follow up statuses
-  const statusNew = souls.filter(s => (s.followUpStatus || 'nouveau') === 'nouveau').length;
-  const statusContacted = souls.filter(s => s.followUpStatus === 'contacte').length;
-  const statusVisited = souls.filter(s => s.followUpStatus === 'visite').length;
-  const statusIntegrated = souls.filter(s => s.followUpStatus === 'integre').length;
+  // Discipulat
+  const basicValidated = souls.filter((s) => s.discipulat?.basicCourse === 'Validé').length;
+  const catechismValidated = souls.filter((s) => s.discipulat?.catechism === 'Validé').length;
+  const discBaptizedValid = souls.filter(
+    (s) => s.discipulat?.isBaptized && s.discipulat?.baptismValidity === 'Valide'
+  ).length;
+  const integratedDept = souls.filter((s) => Boolean(s.discipulat?.department)).length;
 
-  // Known person in church
-  const knowsSomeoneCount = souls.filter(s => s.knowsSomeoneInChurch).length;
+  // Rapports & Délais
+  const totalMonthlyEntries = followUps.length;
+  const lateReportsCount = followUps.filter((f) =>
+    isMonthlyReportLate(f.year, f.month, f.report, f.reportUpdatedAt)
+  ).length;
+  const onTimeReportsCount = totalMonthlyEntries - lateReportsCount;
 
-  // Visit preferred days
-  const visitDaysMap: Record<string, number> = {};
-  souls.filter(s => s.canReceiveVisit && s.visitDay).forEach(s => {
-    const day = s.visitDay || 'Non précisé';
-    visitDaysMap[day] = (visitDaysMap[day] || 0) + 1;
-  });
+  // Moyenne PLEF globale
+  const avgPlef =
+    totalMonthlyEntries > 0
+      ? (
+          followUps.reduce((acc, f) => acc + f.plefP + f.plefL + f.plefE + f.plefF, 0) /
+          totalMonthlyEntries
+        ).toFixed(1)
+      : '0.0';
 
-  const getPercentage = (count: number) => {
-    return total > 0 ? Math.round((count / total) * 100) : 0;
-  };
+  // Communes distribution
+  const communeCounts = souls.reduce<Record<string, number>>((acc, s) => {
+    const key = s.commune || 'Non précisée';
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  const sortedCommunes = Object.entries(communeCounts).sort((a, b) => b[1] - a[1]);
 
   return (
     <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
-      {/* Top Title & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-            Statistiques & Indicateurs de Suivi
-          </h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Aperçu de la moisson, de la répartition par genre et du suivi des visites.
-          </p>
+      <div>
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+          Statistiques Chiffrées d'Enregistrement et de Suivi
+        </h1>
+        <p className="text-xs text-slate-500 mt-0.5">
+          États de synthèse consultables par l'ensemble des hôtes d'accueil et accompagnateurs.
+        </p>
+      </div>
+
+      {/* Primary numeric KPI grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="bg-white p-4 rounded-[5px] border border-slate-300">
+          <div className="text-[11px] font-bold uppercase text-slate-500">Total Âmes</div>
+          <div className="text-2xl font-extrabold text-slate-900 font-mono tabular-nums mt-1">
+            {total}
+          </div>
         </div>
-
-        <div className="flex items-center space-x-2">
-          {total > 0 && (
-            <button
-              onClick={exportToCsv}
-              className="flex items-center space-x-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-300 rounded-[5px] hover:bg-slate-50 shadow-2xs transition"
-            >
-              <Download className="w-3.5 h-3.5 text-slate-600" />
-              <span>Exporter Rapport</span>
-            </button>
-          )}
-
-          <button
-            onClick={onNavigateToRegister}
-            className="flex items-center space-x-1 px-3.5 py-1.5 bg-indigo-900 hover:bg-indigo-800 text-white rounded-[5px] text-xs font-bold shadow-2xs transition"
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>+ Enregistrer une Âme</span>
-          </button>
+        <div className="bg-white p-4 rounded-[5px] border border-slate-300">
+          <div className="text-[11px] font-bold uppercase text-slate-500">Accueil Express</div>
+          <div className="text-2xl font-extrabold text-amber-800 font-mono tabular-nums mt-1">
+            {expressCount} <span className="text-xs font-bold">({pct(expressCount)}%)</span>
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-[5px] border border-slate-300">
+          <div className="text-[11px] font-bold uppercase text-slate-500">Accueil Long</div>
+          <div className="text-2xl font-extrabold text-indigo-950 font-mono tabular-nums mt-1">
+            {longCount} <span className="text-xs font-bold">({pct(longCount)}%)</span>
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-[5px] border border-slate-300">
+          <div className="text-[11px] font-bold uppercase text-slate-500">Suivis Ouverts</div>
+          <div className="text-2xl font-extrabold text-emerald-800 font-mono tabular-nums mt-1">
+            {openCount}
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-[5px] border border-slate-300">
+          <div className="text-[11px] font-bold uppercase text-slate-500">En Attente</div>
+          <div className="text-2xl font-extrabold text-slate-700 font-mono tabular-nums mt-1">
+            {waitingCount}
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-[5px] border border-slate-300">
+          <div className="text-[11px] font-bold uppercase text-slate-500">Suivis Fermés</div>
+          <div className="text-2xl font-extrabold text-rose-800 font-mono tabular-nums mt-1">
+            {closedCount}
+          </div>
         </div>
       </div>
 
-      {/* Primary KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {/* Total Souls */}
-        <div className="bg-white p-4 rounded-[5px] border border-slate-300 shadow-2xs">
-          <div className="flex items-center justify-between text-indigo-900 mb-1">
-            <span className="text-[11px] font-bold uppercase text-slate-500">Total Enregistrées</span>
-            <Users className="w-4 h-4 text-indigo-900" />
-          </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900">{total}</div>
-          <div className="text-[10px] text-slate-500 mt-0.5">Personnes reçues</div>
-        </div>
-
-        {/* Visit Acceptance Rate */}
-        <div className="bg-white p-4 rounded-[5px] border border-slate-300 shadow-2xs">
-          <div className="flex items-center justify-between text-emerald-800 mb-1">
-            <span className="text-[11px] font-bold uppercase text-slate-500">Visites Acceptées</span>
-            <Clock className="w-4 h-4 text-emerald-700" />
-          </div>
-          <div className="flex items-baseline space-x-1.5">
-            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900">{visitAccepted}</span>
-            <span className="text-xs font-bold text-emerald-700">({visitRate}%)</span>
-          </div>
-          <div className="text-[10px] text-slate-500 mt-0.5">Disponibles pour visite</div>
-        </div>
-
-        {/* Integrated in Cell */}
-        <div className="bg-white p-4 rounded-[5px] border border-slate-300 shadow-2xs">
-          <div className="flex items-center justify-between text-indigo-900 mb-1">
-            <span className="text-[11px] font-bold uppercase text-slate-500">Intégrées en Cellule</span>
-            <Home className="w-4 h-4 text-indigo-900" />
-          </div>
-          <div className="flex items-baseline space-x-1.5">
-            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900">{statusIntegrated}</span>
-            <span className="text-xs font-bold text-indigo-900">({getPercentage(statusIntegrated)}%)</span>
-          </div>
-          <div className="text-[10px] text-slate-500 mt-0.5">Fidélisées en cellule</div>
-        </div>
-
-        {/* Parrainage / Connaissance */}
-        <div className="bg-white p-4 rounded-[5px] border border-slate-300 shadow-2xs">
-          <div className="flex items-center justify-between text-amber-800 mb-1">
-            <span className="text-[11px] font-bold uppercase text-slate-500">Connaissent un Fidèle</span>
-            <HeartHandshake className="w-4 h-4 text-amber-700" />
-          </div>
-          <div className="flex items-baseline space-x-1.5">
-            <span className="text-2xl sm:text-3xl font-extrabold text-slate-900">{knowsSomeoneCount}</span>
-            <span className="text-xs font-bold text-amber-700">({getPercentage(knowsSomeoneCount)}%)</span>
-          </div>
-          <div className="text-[10px] text-slate-500 mt-0.5">Ont un lien fraternel initial</div>
-        </div>
-      </div>
-
-      {/* Gender Breakdown & Follow-up Funnel */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Gender Breakdown */}
-        <div className="bg-white p-5 rounded-[5px] border border-slate-300 shadow-2xs">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950 mb-3">
-            Répartition par Genre & Catégorie
+      {/* Second row: Contexte d'accueil, Qualités Discipulat, Validation & PLEF */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Contextes d'accueil */}
+        <div className="bg-white p-5 rounded-[5px] border border-slate-300 space-y-3">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950 border-b border-slate-200 pb-2">
+            Par Contexte d'Accueil
           </h2>
-
-          <div className="space-y-3">
-            {/* Homme */}
-            <div>
-              <div className="flex justify-between text-xs font-bold mb-1">
-                <span className="text-blue-900">HOMMES</span>
-                <span className="text-slate-800">{menCount} ({getPercentage(menCount)}%)</span>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-[5px] overflow-hidden border border-slate-200">
-                <div
-                  className="bg-blue-700 h-2 rounded-[5px]"
-                  style={{ width: `${getPercentage(menCount)}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Femme */}
-            <div>
-              <div className="flex justify-between text-xs font-bold mb-1">
-                <span className="text-rose-900">FEMMES</span>
-                <span className="text-slate-800">{womenCount} ({getPercentage(womenCount)}%)</span>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-[5px] overflow-hidden border border-slate-200">
-                <div
-                  className="bg-rose-600 h-2 rounded-[5px]"
-                  style={{ width: `${getPercentage(womenCount)}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Jeune */}
-            <div>
-              <div className="flex justify-between text-xs font-bold mb-1">
-                <span className="text-amber-900">JEUNES</span>
-                <span className="text-slate-800">{youthCount} ({getPercentage(youthCount)}%)</span>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-[5px] overflow-hidden border border-slate-200">
-                <div
-                  className="bg-amber-600 h-2 rounded-[5px]"
-                  style={{ width: `${getPercentage(youthCount)}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Enfant */}
-            <div>
-              <div className="flex justify-between text-xs font-bold mb-1">
-                <span className="text-emerald-900">ENFANTS</span>
-                <span className="text-slate-800">{childrenCount} ({getPercentage(childrenCount)}%)</span>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-[5px] overflow-hidden border border-slate-200">
-                <div
-                  className="bg-emerald-600 h-2 rounded-[5px]"
-                  style={{ width: `${getPercentage(childrenCount)}%` }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Funnel de Suivi Pastoral */}
-        <div className="bg-white p-5 rounded-[5px] border border-slate-300 shadow-2xs flex flex-col justify-between">
-          <div>
-            <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950 mb-3">
-              Suivi d'Intégration
-            </h2>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-              <div className="p-2.5 bg-slate-50 rounded-[5px] border border-slate-200">
-                <div className="text-xl font-bold text-slate-800">{statusNew}</div>
-                <div className="text-[11px] font-bold text-slate-700 mt-0.5">Nouveaux</div>
-              </div>
-
-              <div className="p-2.5 bg-amber-50 rounded-[5px] border border-amber-200">
-                <div className="text-xl font-bold text-amber-800">{statusContacted}</div>
-                <div className="text-[11px] font-bold text-amber-900 mt-0.5">Contactés</div>
-              </div>
-
-              <div className="p-2.5 bg-purple-50 rounded-[5px] border border-purple-200">
-                <div className="text-xl font-bold text-purple-800">{statusVisited}</div>
-                <div className="text-[11px] font-bold text-purple-900 mt-0.5">Visités</div>
-              </div>
-
-              <div className="p-2.5 bg-emerald-50 rounded-[5px] border border-emerald-200">
-                <div className="text-xl font-bold text-emerald-800">{statusIntegrated}</div>
-                <div className="text-[11px] font-bold text-emerald-900 mt-0.5">Intégrés</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between">
-            <span className="text-[11px] text-slate-500">Mise à jour en temps réel</span>
-            <button
-              onClick={onNavigateToSouls}
-              className="text-xs font-bold text-indigo-900 hover:underline flex items-center space-x-1"
-            >
-              <span>Accéder au Grand Tableau</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Prayer Cells Allocation */}
-      <div className="bg-white p-5 rounded-[5px] border border-slate-300 shadow-2xs">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950 mb-3">
-          Répartition des Âmes par Cellule de Prière
-        </h2>
-
-        {prayerCells.length === 0 ? (
-          <p className="text-xs text-slate-500 italic py-3">
-            Aucune cellule de prière enregistrée pour le moment.
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {prayerCells.map(c => {
-              const count = souls.filter(s => s.prayerCell === c.name).length;
-              const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+          <div className="space-y-2 text-xs">
+            {WELCOME_CONTEXT_OPTIONS.map((ctx) => {
+              const count = souls.filter((s) => s.welcomeContextType === ctx).length;
               return (
-                <div key={c.id} className="p-2.5 bg-slate-50 rounded-[5px] border border-slate-200 text-xs">
-                  <div className="flex items-center justify-between font-bold text-slate-800 mb-1">
-                    <span className="truncate pr-2">{c.name}</span>
-                    <span className="text-indigo-900 shrink-0">{count} âme(s) ({pct}%)</span>
-                  </div>
-                  <div className="w-full bg-slate-200 h-1.5 rounded-[5px] overflow-hidden">
-                    <div
-                      className="bg-indigo-900 h-1.5 rounded-[5px]"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <div className="text-[10px] text-slate-500 mt-1 flex justify-between">
-                    <span>Resp: {c.leaderName} ({c.leaderPhone})</span>
-                    <span>{c.meetingDay} {c.meetingTime}</span>
-                  </div>
+                <div key={ctx} className="flex items-center justify-between">
+                  <span className="text-slate-700 font-medium">{ctx}</span>
+                  <span className="font-mono font-bold tabular-nums text-slate-900">
+                    {count} ({pct(count)}%)
+                  </span>
                 </div>
               );
             })}
           </div>
-        )}
+        </div>
+
+        {/* Discipulat Qualités */}
+        <div className="bg-white p-5 rounded-[5px] border border-slate-300 space-y-3">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950 border-b border-slate-200 pb-2">
+            Qualités Discipulat
+          </h2>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            {DISCIPLESHIP_QUALITIES.map((q) => {
+              const count = souls.filter(
+                (s) => (s.discipulat?.quality || 'Nouveau') === q
+              ).length;
+              return (
+                <div
+                  key={q}
+                  className="p-2 bg-slate-50 border border-slate-200 rounded-[5px] flex items-center justify-between"
+                >
+                  <span className="text-slate-700">{q}</span>
+                  <strong className="font-mono tabular-nums text-indigo-950">{count}</strong>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Formations, Rapports & Score PLEF */}
+        <div className="bg-white p-5 rounded-[5px] border border-slate-300 space-y-2.5 text-xs">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950 border-b border-slate-200 pb-2">
+            Indicateurs de Croissance & Rapports
+          </h2>
+          <div className="flex justify-between">
+            <span>Chrétiens à l'arrivée / Membres</span>
+            <strong className="font-mono tabular-nums">
+              {christianCount} / {memberCount}
+            </strong>
+          </div>
+          <div className="flex justify-between">
+            <span>Baptisés (Accueil / Discipulat valide)</span>
+            <strong className="font-mono tabular-nums">
+              {baptizedInitialCount} / {discBaptizedValid}
+            </strong>
+          </div>
+          <div className="flex justify-between">
+            <span>Cours de base validés</span>
+            <strong className="font-mono tabular-nums">{basicValidated}</strong>
+          </div>
+          <div className="flex justify-between">
+            <span>Catéchisme validés</span>
+            <strong className="font-mono tabular-nums">{catechismValidated}</strong>
+          </div>
+          <div className="flex justify-between">
+            <span>Intégrés en Département</span>
+            <strong className="font-mono tabular-nums">{integratedDept}</strong>
+          </div>
+          <div className="flex justify-between pt-2 border-t border-slate-200">
+            <span>Score PLEF moyen (/20)</span>
+            <strong className="font-mono tabular-nums text-indigo-950">{avgPlef}</strong>
+          </div>
+          <div className="flex justify-between">
+            <span>Rapports mensuels (À temps / Hors délai)</span>
+            <strong className="font-mono tabular-nums">
+              <span className="text-emerald-700">{onTimeReportsCount}</span> /{' '}
+              <span className="text-rose-700">{lateReportsCount}</span>
+            </strong>
+          </div>
+        </div>
+      </div>
+
+      {/* Third row: Équipes, Communes, Départements */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Par Équipe */}
+        <div className="bg-white p-5 rounded-[5px] border border-slate-300 space-y-3">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950 border-b border-slate-200 pb-2">
+            Répartition par Équipe
+          </h2>
+          {teams.length === 0 ? (
+            <p className="text-xs text-slate-500 italic">Aucune équipe créée.</p>
+          ) : (
+            <div className="space-y-2 text-xs">
+              {teams.map((t) => {
+                const c = souls.filter((s) => s.assignedTeamId === t.id).length;
+                return (
+                  <div key={t.id} className="flex items-center justify-between">
+                    <span className="font-medium text-slate-800">{t.name}</span>
+                    <strong className="font-mono tabular-nums">{c} âme(s)</strong>
+                  </div>
+                );
+              })}
+              <div className="flex items-center justify-between pt-1.5 border-t border-slate-100 text-slate-500">
+                <span>Non assignées</span>
+                <strong className="font-mono tabular-nums">
+                  {souls.filter((s) => !s.assignedTeamId).length}
+                </strong>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Par Commune */}
+        <div className="bg-white p-5 rounded-[5px] border border-slate-300 space-y-3">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950 border-b border-slate-200 pb-2">
+            Répartition par Commune
+          </h2>
+          {sortedCommunes.length === 0 ? (
+            <p className="text-xs text-slate-500 italic">Aucune donnée enregistrée.</p>
+          ) : (
+            <div className="space-y-1.5 text-xs max-h-56 overflow-y-auto">
+              {sortedCommunes.map(([name, count]) => (
+                <div key={name} className="flex items-center justify-between">
+                  <span className="text-slate-700">{name}</span>
+                  <strong className="font-mono tabular-nums">
+                    {count} ({pct(count)}%)
+                  </strong>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Par Département */}
+        <div className="bg-white p-5 rounded-[5px] border border-slate-300 space-y-3">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950 border-b border-slate-200 pb-2">
+            Intégration par Département
+          </h2>
+          <div className="space-y-1.5 text-xs max-h-56 overflow-y-auto">
+            {ASSEMBLEE_DEPARTMENTS.map((dep) => {
+              const count = souls.filter((s) => s.discipulat?.department === dep).length;
+              return (
+                <div key={dep} className="flex items-center justify-between">
+                  <span className="text-slate-700">{dep}</span>
+                  <strong className="font-mono tabular-nums">{count}</strong>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );

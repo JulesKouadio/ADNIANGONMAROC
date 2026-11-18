@@ -1,76 +1,193 @@
 {
   "entities": {
-    "NewSoul": {
-      "title": "NewSoul",
-      "description": "Fiche d'enregistrement et de suivi pastoral d'une nouvelle âme dans l'église",
+    "HostUser": {
+      "title": "HostUser",
+      "description": "Hôte d'accueil (Responsable, Chef d'équipe ou Accompagnateur)",
       "type": "object",
       "properties": {
-        "receptionDate": { "type": "string", "maxLength": 30 },
+        "username": { "type": "string", "maxLength": 60 },
+        "passwordHash": { "type": "string", "maxLength": 128 },
+        "mustSetPassword": { "type": "boolean" },
+        "lastName": { "type": "string", "maxLength": 100 },
+        "firstNames": { "type": "string", "maxLength": 150 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "location": { "type": "string", "maxLength": 150 },
+        "role": { "type": "string", "enum": ["Responsable", "Chef d'équipe", "Accompagnateur"] },
+        "subRole": { "type": "string", "enum": ["Responsable principal", "Responsable adjoint", "Chef d'équipe", "Accompagnateur"] },
+        "teamId": { "type": "string", "maxLength": 128 },
+        "teamName": { "type": "string", "maxLength": 100 },
+        "status": { "type": "string", "enum": ["active", "suspended"] },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": [
+        "username",
+        "passwordHash",
+        "mustSetPassword",
+        "lastName",
+        "firstNames",
+        "phone",
+        "role",
+        "subRole",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AccompanimentTeam": {
+      "title": "AccompanimentTeam",
+      "description": "Équipe d'accompagnement dirigée par un Chef d'équipe",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 100 },
+        "leaderId": { "type": "string", "maxLength": 128 },
+        "leaderName": { "type": "string", "maxLength": 200 },
+        "leaderPhone": { "type": "string", "maxLength": 30 },
+        "status": { "type": "string", "enum": ["active", "suspended"] },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": [
+        "name",
+        "leaderId",
+        "leaderName",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "NewSoul": {
+      "title": "NewSoul",
+      "description": "Fiche d'enregistrement et de suivi d'une âme",
+      "type": "object",
+      "properties": {
+        "accueilMode": { "type": "string", "enum": ["express", "long"] },
+        "welcomeContextType": { "type": "string", "enum": ["Culte", "Réunion du soir", "Campagne d'évangélisation", "Semaine d'accentuation"] },
+        "welcomeMeetingDay": { "type": "string", "maxLength": 30 },
+        "receptionDate": { "type": "string", "maxLength": 40 },
         "gender": { "type": "string", "enum": ["HOMME", "FEMME", "JEUNE", "ENFANT"] },
         "lastName": { "type": "string", "maxLength": 100 },
         "firstNames": { "type": "string", "maxLength": 150 },
-        "neighborhood": { "type": "string", "maxLength": 150 },
-        "addressLandmark": { "type": "string", "maxLength": 300 },
         "phoneNumber": { "type": "string", "maxLength": 30 },
-        "prayerCell": { "type": "string", "maxLength": 100 },
+        "normalizedPhone": { "type": "string", "maxLength": 30 },
+        "commune": { "type": "string", "maxLength": 100 },
+        "quartier": { "type": "string", "maxLength": 100 },
+        "secteur": { "type": "string", "maxLength": 100 },
+        "addressLandmark": { "type": "string", "maxLength": 300 },
+        "gps": { "type": "string", "maxLength": 120 },
+        "stayDuration": { "type": "string", "maxLength": 30 },
         "canReceiveVisit": { "type": "boolean" },
         "visitDay": { "type": "string", "maxLength": 50 },
         "visitTime": { "type": "string", "maxLength": 50 },
         "visitRefusalReason": { "type": "string", "maxLength": 300 },
-        "knowsSomeoneInChurch": { "type": "boolean" },
-        "knownPersonName": { "type": "string", "maxLength": 150 },
+        "arrivalContext": { "type": "string", "maxLength": 50 },
+        "arrivalSubContext": { "type": "string", "maxLength": 80 },
+        "arrivalReferrerName": { "type": "string", "maxLength": 150 },
+        "isChristian": { "type": "boolean" },
+        "isAssemblyMember": { "type": "boolean" },
+        "isBaptized": { "type": "boolean" },
+        "isActiveInDepartment": { "type": "boolean" },
+        "consentToContact": { "type": "boolean" },
+        "consentToContactDateLong": { "type": "string", "maxLength": 60 },
+        "consentToRecord": { "type": "boolean" },
+        "recordedById": { "type": "string", "maxLength": 128 },
         "recordedByName": { "type": "string", "maxLength": 150 },
         "recordedByPhone": { "type": "string", "maxLength": 30 },
-        "observation": { "type": "string", "maxLength": 1000 },
-        "followUpStatus": { "type": "string", "enum": ["nouveau", "contacte", "visite", "integre"] },
-        "createdAt": { "type": "string" },
-        "updatedAt": { "type": "string" }
+        "observation": { "type": "string", "maxLength": 1500 },
+        "assignedTeamId": { "type": "string", "maxLength": 128 },
+        "assignedTeamName": { "type": "string", "maxLength": 100 },
+        "assignedAccompagnateurId": { "type": "string", "maxLength": 128 },
+        "assignedAccompagnateurName": { "type": "string", "maxLength": 200 },
+        "followUpState": { "type": "string", "enum": ["en_attente_decision", "ouvert", "ferme"] },
+        "closureReason": { "type": "string", "maxLength": 150 },
+        "closureReasonOther": { "type": "string", "maxLength": 500 },
+        "closedByName": { "type": "string", "maxLength": 150 },
+        "closedAtDateLong": { "type": "string", "maxLength": 60 },
+        "openedByName": { "type": "string", "maxLength": 150 },
+        "openedAtDateLong": { "type": "string", "maxLength": 60 },
+        "discipulat": { "type": "object" },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
       },
       "required": [
+        "accueilMode",
+        "welcomeContextType",
         "receptionDate",
-        "gender",
         "lastName",
         "firstNames",
-        "neighborhood",
         "phoneNumber",
-        "prayerCell",
-        "canReceiveVisit",
-        "knowsSomeoneInChurch",
-        "recordedByName"
+        "normalizedPhone",
+        "commune",
+        "quartier",
+        "secteur",
+        "isChristian",
+        "consentToContact",
+        "consentToContactDateLong",
+        "consentToRecord",
+        "recordedByName",
+        "followUpState",
+        "createdAt",
+        "updatedAt"
       ]
     },
-    "PrayerCell": {
-      "title": "PrayerCell",
-      "description": "Cellule de prière de quartier de l'église",
+    "MonthlyFollowUp": {
+      "title": "MonthlyFollowUp",
+      "description": "Entrée mensuelle du tableau de bord de suivi (Fréquence, PLEF, REX, Rapport)",
       "type": "object",
       "properties": {
-        "name": { "type": "string", "maxLength": 100 },
-        "neighborhood": { "type": "string", "maxLength": 100 },
-        "leaderName": { "type": "string", "maxLength": 100 },
-        "leaderPhone": { "type": "string", "maxLength": 30 },
-        "meetingDay": { "type": "string", "maxLength": 50 },
-        "meetingTime": { "type": "string", "maxLength": 50 }
+        "soulId": { "type": "string", "maxLength": 128 },
+        "soulName": { "type": "string", "maxLength": 200 },
+        "teamId": { "type": "string", "maxLength": 128 },
+        "teamName": { "type": "string", "maxLength": 100 },
+        "accompagnateurId": { "type": "string", "maxLength": 128 },
+        "accompagnateurName": { "type": "string", "maxLength": 200 },
+        "year": { "type": "number" },
+        "month": { "type": "number" },
+        "contactFrequency": { "type": "string", "enum": ["0/M", "1/M", "2/M", "3/M", "1/S", "2/S", "3/S"] },
+        "plefP": { "type": "number" },
+        "plefL": { "type": "number" },
+        "plefE": { "type": "number" },
+        "plefF": { "type": "number" },
+        "rex": { "type": "string", "maxLength": 1500 },
+        "rexDateShort": { "type": "string", "maxLength": 50 },
+        "report": { "type": "string", "maxLength": 2500 },
+        "reportUpdatedAt": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
       },
       "required": [
-        "name",
-        "neighborhood",
-        "leaderName",
-        "leaderPhone"
+        "soulId",
+        "soulName",
+        "accompagnateurId",
+        "accompagnateurName",
+        "year",
+        "month",
+        "contactFrequency",
+        "plefP",
+        "plefL",
+        "plefE",
+        "plefF",
+        "createdAt",
+        "updatedAt"
       ]
     }
   },
   "firestore": {
-    "/newSouls/{soulId}": {
-      "schema": {
-        "$ref": "#/entities/NewSoul"
-      },
-      "description": "Registre des nouvelles âmes reçues à l'église"
+    "/hosts/{hostId}": {
+      "schema": { "$ref": "#/entities/HostUser" },
+      "description": "Hôtes d'accueil, chefs d'équipe et responsables"
     },
-    "/prayerCells/{cellId}": {
-      "schema": {
-        "$ref": "#/entities/PrayerCell"
-      },
-      "description": "Cellules de prière de l'assemblée pour l'encadrement"
+    "/teams/{teamId}": {
+      "schema": { "$ref": "#/entities/AccompanimentTeam" },
+      "description": "Équipes d'accompagnement"
+    },
+    "/newSouls/{soulId}": {
+      "schema": { "$ref": "#/entities/NewSoul" },
+      "description": "Registre complet des âmes reçues"
+    },
+    "/followUps/{followUpId}": {
+      "schema": { "$ref": "#/entities/MonthlyFollowUp" },
+      "description": "Suivi mensuel PLEF, REX et Rapports"
     }
   }
 }

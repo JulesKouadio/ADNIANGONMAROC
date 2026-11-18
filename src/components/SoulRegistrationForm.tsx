@@ -1,294 +1,542 @@
-import React, { useState } from 'react';
-import { 
-  Calendar, 
-  User, 
-  Phone, 
-  MapPin, 
-  Navigation, 
-  Users, 
-  Clock, 
-  HeartHandshake, 
-  CheckCircle2, 
-  Send, 
-  Printer, 
-  Plus
+import React, { useState, useEffect } from 'react';
+import {
+  AlertTriangle,
+  Calendar,
+  MapPin,
+  Navigation,
+  Phone,
+  Send,
+  User,
+  Crosshair,
+  CheckCircle2,
+  ArrowRight,
 } from 'lucide-react';
 import { useChurch } from '../context/ChurchContext';
-import { SoulGender } from '../types';
-import { formatDateFr } from '../utils/date';
+import {
+  AccueilMode,
+  ArrivalContextType,
+  NewSoul,
+  SoulGender,
+  StayDuration,
+  WelcomeContextType,
+} from '../types';
+import { getCommunes, getQuartiers, getSecteurs } from '../data/abidjanSectors';
+import { WELCOME_CONTEXT_OPTIONS } from '../data/churchConstants';
+import {
+  formatDateFr,
+  formatLongDateFr,
+  formatShortDateFr,
+  toIsoDateInput,
+} from '../utils/date';
 
 interface SoulRegistrationFormProps {
+  editingSoul?: NewSoul | null;
+  onCancelEdit?: () => void;
+  onSelectExistingSoulToEdit?: (soul: NewSoul) => void;
   onSuccessNavigate?: () => void;
 }
 
-export const SoulRegistrationForm: React.FC<SoulRegistrationFormProps> = ({ onSuccessNavigate }) => {
-  const { 
-    prayerCells, 
-    addNewSoul, 
-    savedRecorder, 
-    setSavedRecorder,
-    addPrayerCell 
-  } = useChurch();
+export const SoulRegistrationForm: React.FC<SoulRegistrationFormProps> = ({
+  editingSoul,
+  onCancelEdit,
+  onSelectExistingSoulToEdit,
+  onSuccessNavigate,
+}) => {
+  const { currentHost, findSoulByPhone, addNewSoul, updateSoul } = useChurch();
 
-  // Form states
-  const todayStr = new Date().toISOString().split('T')[0];
-  const [receptionDate, setReceptionDate] = useState<string>(todayStr);
-  const [gender, setGender] = useState<SoulGender>('HOMME');
-  const [lastName, setLastName] = useState<string>('');
-  const [firstNames, setFirstNames] = useState<string>('');
-  const [neighborhood, setNeighborhood] = useState<string>('');
-  const [addressLandmark, setAddressLandmark] = useState<string>('');
-  const [phoneNumber, setPhoneNumber] = useState<string>('');
-  const [prayerCell, setPrayerCell] = useState<string>(prayerCells[0]?.name || '');
+  const isEditing = Boolean(editingSoul);
 
-  // Visit states
-  const [canReceiveVisit, setCanReceiveVisit] = useState<boolean>(true);
-  const [visitDay, setVisitDay] = useState<string>('Samedi');
-  const [visitTime, setVisitTime] = useState<string>('16h00');
-  const [visitRefusalReason, setVisitRefusalReason] = useState<string>('');
+  // Mode Express / Long
+  const [accueilMode, setAccueilMode] = useState<AccueilMode>(
+    editingSoul?.accueilMode || 'long'
+  );
 
-  // Acquaintance states
-  const [knowsSomeoneInChurch, setKnowsSomeoneInChurch] = useState<boolean>(false);
-  const [knownPersonName, setKnownPersonName] = useState<string>('');
+  // 1. Contexte d'accueil
+  const [welcomeContextType, setWelcomeContextType] = useState<WelcomeContextType>(
+    editingSoul?.welcomeContextType || 'Culte'
+  );
+  const [welcomeMeetingDay, setWelcomeMeetingDay] = useState<string>(
+    editingSoul?.welcomeMeetingDay || 'Mardi'
+  );
+  const [receptionDateIso, setReceptionDateIso] = useState<string>(
+    editingSoul ? toIsoDateInput(editingSoul.receptionDate) : new Date().toISOString().split('T')[0]
+  );
 
-  // Recorder states
-  const [recordedByName, setRecordedByName] = useState<string>(savedRecorder.name || '');
-  const [recordedByPhone, setRecordedByPhone] = useState<string>(savedRecorder.phone || '');
+  // 2. Identité
+  const [gender, setGender] = useState<SoulGender>(editingSoul?.gender || 'HOMME');
+  const [lastName, setLastName] = useState<string>(editingSoul?.lastName || '');
+  const [firstNames, setFirstNames] = useState<string>(editingSoul?.firstNames || '');
+  const [phoneNumber, setPhoneNumber] = useState<string>(editingSoul?.phoneNumber || '');
 
-  // Observation state
-  const [observation, setObservation] = useState<string>('');
+  // 3. Localisation (Commune -> Quartier -> Secteur)
+  const communes = getCommunes();
+  const [commune, setCommune] = useState<string>(editingSoul?.commune || 'Yopougon');
+  const quartiers = getQuartiers(commune);
+  const [quartier, setQuartier] = useState<string>(
+    editingSoul?.quartier || quartiers[0] || ''
+  );
+  const secteurs = getSecteurs(commune, quartier);
+  const [secteur, setSecteur] = useState<string>(
+    editingSoul?.secteur || secteurs[0] || ''
+  );
+  const [addressLandmark, setAddressLandmark] = useState<string>(
+    editingSoul?.addressLandmark || ''
+  );
+  const [gps, setGps] = useState<string>(editingSoul?.gps || '');
+  const [stayDuration, setStayDuration] = useState<StayDuration>(
+    editingSoul?.stayDuration || 'Permanent'
+  );
+  const [locatingGps, setLocatingGps] = useState(false);
 
-  // UI state
+  // 4. Visite à domicile (conservée selon demande utilisateur)
+  const [canReceiveVisit, setCanReceiveVisit] = useState<boolean>(
+    editingSoul?.canReceiveVisit !== undefined ? editingSoul.canReceiveVisit : true
+  );
+  const [visitDay, setVisitDay] = useState<string>(editingSoul?.visitDay || 'Samedi');
+  const [visitTime, setVisitTime] = useState<string>(editingSoul?.visitTime || '16h00');
+  const [visitRefusalReason, setVisitRefusalReason] = useState<string>(
+    editingSoul?.visitRefusalReason || ''
+  );
+
+  // 5. Contexte d'arrivée (Accueil long)
+  const [arrivalContext, setArrivalContext] = useState<ArrivalContextType>(
+    editingSoul?.arrivalContext || 'Librement'
+  );
+  const [arrivalSubContext, setArrivalSubContext] = useState<string>(
+    editingSoul?.arrivalSubContext || ''
+  );
+  const [arrivalReferrerName, setArrivalReferrerName] = useState<string>(
+    editingSoul?.arrivalReferrerName || ''
+  );
+
+  // 6. Vie spirituelle (cascade)
+  const [isChristian, setIsChristian] = useState<boolean>(
+    editingSoul?.isChristian !== undefined ? editingSoul.isChristian : false
+  );
+  const [isAssemblyMember, setIsAssemblyMember] = useState<boolean>(
+    editingSoul?.isAssemblyMember !== undefined ? editingSoul.isAssemblyMember : false
+  );
+  const [isBaptized, setIsBaptized] = useState<boolean>(
+    editingSoul?.isBaptized !== undefined ? editingSoul.isBaptized : false
+  );
+  const [isActiveInDepartment, setIsActiveInDepartment] = useState<boolean>(
+    editingSoul?.isActiveInDepartment !== undefined ? editingSoul.isActiveInDepartment : false
+  );
+
+  // 7. Consentements obligatoires
+  const [consentToContact, setConsentToContact] = useState<boolean>(
+    editingSoul?.consentToContact || false
+  );
+  const [consentToContactDateLong, setConsentToContactDateLong] = useState<string>(
+    editingSoul?.consentToContactDateLong || ''
+  );
+  const [consentToRecord, setConsentToRecord] = useState<boolean>(
+    editingSoul?.consentToRecord || false
+  );
+
+  // 8. Observation
+  const [observation, setObservation] = useState<string>(editingSoul?.observation || '');
+
+  // UI feedback
+  const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [createdSoulData, setCreatedSoulData] = useState<any | null>(null);
-  const [showSuccessModal, setShowSuccessModal] = useState<boolean>(false);
-  const [showNewCellQuickModal, setShowNewCellQuickModal] = useState<boolean>(false);
-  const [newCellName, setNewCellName] = useState('');
-  const [newCellLeader, setNewCellLeader] = useState('');
-  const [newCellPhone, setNewCellPhone] = useState('');
+  const [savedSoulModal, setSavedSoulModal] = useState<NewSoul | null>(null);
 
-  // Automatically select first cell when cells are loaded or created
-  React.useEffect(() => {
-    if ((!prayerCell || !prayerCells.some(c => c.name === prayerCell)) && prayerCells.length > 0) {
-      setPrayerCell(prayerCells[0].name);
+  // Re-sync state when editingSoul prop changes
+  useEffect(() => {
+    if (editingSoul) {
+      setAccueilMode(editingSoul.accueilMode || 'long');
+      setWelcomeContextType(editingSoul.welcomeContextType || 'Culte');
+      setWelcomeMeetingDay(editingSoul.welcomeMeetingDay || 'Mardi');
+      setReceptionDateIso(toIsoDateInput(editingSoul.receptionDate));
+      setGender(editingSoul.gender || 'HOMME');
+      setLastName(editingSoul.lastName || '');
+      setFirstNames(editingSoul.firstNames || '');
+      setPhoneNumber(editingSoul.phoneNumber || '');
+      setCommune(editingSoul.commune || 'Yopougon');
+      setQuartier(editingSoul.quartier || '');
+      setSecteur(editingSoul.secteur || '');
+      setAddressLandmark(editingSoul.addressLandmark || '');
+      setGps(editingSoul.gps || '');
+      setStayDuration(editingSoul.stayDuration || 'Permanent');
+      setCanReceiveVisit(editingSoul.canReceiveVisit !== undefined ? editingSoul.canReceiveVisit : true);
+      setVisitDay(editingSoul.visitDay || 'Samedi');
+      setVisitTime(editingSoul.visitTime || '16h00');
+      setVisitRefusalReason(editingSoul.visitRefusalReason || '');
+      setArrivalContext(editingSoul.arrivalContext || 'Librement');
+      setArrivalSubContext(editingSoul.arrivalSubContext || '');
+      setArrivalReferrerName(editingSoul.arrivalReferrerName || '');
+      setIsChristian(Boolean(editingSoul.isChristian));
+      setIsAssemblyMember(Boolean(editingSoul.isAssemblyMember));
+      setIsBaptized(Boolean(editingSoul.isBaptized));
+      setIsActiveInDepartment(Boolean(editingSoul.isActiveInDepartment));
+      setConsentToContact(Boolean(editingSoul.consentToContact));
+      setConsentToContactDateLong(editingSoul.consentToContactDateLong || '');
+      setConsentToRecord(Boolean(editingSoul.consentToRecord));
+      setObservation(editingSoul.observation || '');
+      setFormError(null);
     }
-  }, [prayerCells, prayerCell]);
+  }, [editingSoul]);
 
-  const genderOptions: { label: SoulGender; sub: string }[] = [
-    { label: 'HOMME', sub: 'Homme adulte' },
-    { label: 'FEMME', sub: 'Femme adulte' },
-    { label: 'JEUNE', sub: 'Jeune / Étudiant' },
-    { label: 'ENFANT', sub: 'Enfant' },
-  ];
+  // Duplicate phone key detection
+  const duplicateSoul = phoneNumber.trim().length >= 6
+    ? findSoulByPhone(phoneNumber, editingSoul?.id)
+    : undefined;
 
-  const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  const handleCommuneChange = (newCommune: string) => {
+    setCommune(newCommune);
+    const nextQuartiers = getQuartiers(newCommune);
+    const firstQ = nextQuartiers[0] || '';
+    setQuartier(firstQ);
+    const nextSecteurs = getSecteurs(newCommune, firstQ);
+    setSecteur(nextSecteurs[0] || '');
+  };
+
+  const handleQuartierChange = (newQuartier: string) => {
+    setQuartier(newQuartier);
+    const nextSecteurs = getSecteurs(commune, newQuartier);
+    setSecteur(nextSecteurs[0] || '');
+  };
+
+  const handleCaptureGps = () => {
+    if (!navigator.geolocation) {
+      setFormError("La géolocalisation n'est pas prise en charge par ce navigateur.");
+      return;
+    }
+    setLocatingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
+        setGps(coords);
+        setLocatingGps(false);
+      },
+      () => {
+        setFormError("Impossible de récupérer la position GPS. Vous pouvez la saisir manuellement.");
+        setLocatingGps(false);
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  };
+
+  const handleReset = () => {
+    setFormError(null);
+    setLastName('');
+    setFirstNames('');
+    setPhoneNumber('');
+    setAddressLandmark('');
+    setGps('');
+    setStayDuration('Permanent');
+    setCanReceiveVisit(true);
+    setVisitDay('Samedi');
+    setVisitTime('16h00');
+    setVisitRefusalReason('');
+    setArrivalContext('Librement');
+    setArrivalSubContext('');
+    setArrivalReferrerName('');
+    setIsChristian(false);
+    setIsAssemblyMember(false);
+    setIsBaptized(false);
+    setIsActiveInDepartment(false);
+    setConsentToContact(false);
+    setConsentToContactDateLong('');
+    setConsentToRecord(false);
+    setObservation('');
+    setSavedSoulModal(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
 
-    if (!lastName.trim() || !firstNames.trim()) {
-      alert("Veuillez renseigner le nom et les prénoms de la personne.");
+    if (duplicateSoul) {
+      setFormError(
+        `Le numéro ${phoneNumber} existe déjà dans le registre (${duplicateSoul.firstNames} ${duplicateSoul.lastName}). Ouvrez la fiche existante pour la compléter.`
+      );
       return;
     }
 
-    if (!phoneNumber.trim()) {
-      alert("Veuillez renseigner le numéro de téléphone de contact.");
+    if (!lastName.trim() || !firstNames.trim() || !phoneNumber.trim()) {
+      setFormError("Veuillez renseigner le nom, les prénoms et le numéro de téléphone.");
       return;
     }
 
-    if (!neighborhood.trim()) {
-      alert("Veuillez renseigner le quartier d'habitation.");
+    if (!commune || !quartier || !secteur) {
+      setFormError("Veuillez sélectionner la commune, le quartier et le secteur.");
       return;
     }
 
-    if (!recordedByName.trim()) {
-      alert("Veuillez renseigner le nom de la personne qui effectue l'enregistrement.");
+    if (!consentToContact) {
+      setFormError(
+        "L'accord explicite de l'âme pour être contactée est obligatoire avant validation."
+      );
       return;
     }
 
-    if (!canReceiveVisit && !visitRefusalReason.trim()) {
-      alert("Veuillez indiquer la raison du refus de visite afin de guider le suivi.");
+    if (!consentToRecord) {
+      setFormError(
+        "L'accord explicite de l'âme pour l'enregistrement de ses données personnelles est obligatoire."
+      );
       return;
     }
 
-    if (knowsSomeoneInChurch && !knownPersonName.trim()) {
-      alert("Veuillez indiquer le nom de la personne connue dans l'église.");
+    if (accueilMode === 'long' && !canReceiveVisit && !visitRefusalReason.trim()) {
+      setFormError("Veuillez indiquer le motif en cas de refus de visite à domicile.");
       return;
     }
 
-    // Save recorder info for future fast input
-    setSavedRecorder({
-      name: recordedByName.trim(),
-      phone: recordedByPhone.trim(),
-    });
+    const effectiveContactDateLong =
+      consentToContactDateLong || formatLongDateFr(new Date());
 
-    setIsSubmitting(true);
+    const shortReceptionDate = formatShortDateFr(receptionDateIso);
 
-    const soulPayload = {
-      receptionDate: formatDateFr(receptionDate),
+    const payloadBase = {
+      accueilMode,
+      welcomeContextType,
+      welcomeMeetingDay:
+        welcomeContextType === 'Réunion du soir' ? welcomeMeetingDay : '',
+      receptionDate: shortReceptionDate,
       gender,
       lastName: lastName.trim().toUpperCase(),
       firstNames: firstNames.trim(),
-      neighborhood: neighborhood.trim(),
-      addressLandmark: addressLandmark.trim(),
       phoneNumber: phoneNumber.trim(),
-      prayerCell: prayerCell || (prayerCells[0]?.name ?? 'Cellule Principale'),
-      canReceiveVisit,
-      visitDay: canReceiveVisit ? visitDay : '',
-      visitTime: canReceiveVisit ? visitTime : '',
-      visitRefusalReason: !canReceiveVisit ? visitRefusalReason.trim() : '',
-      knowsSomeoneInChurch,
-      knownPersonName: knowsSomeoneInChurch ? knownPersonName.trim() : '',
-      recordedByName: recordedByName.trim(),
-      recordedByPhone: recordedByPhone.trim(),
-      observation: observation.trim(),
-      followUpStatus: 'nouveau' as const,
+      commune,
+      quartier,
+      secteur,
+      addressLandmark: addressLandmark.trim(),
+      gps: accueilMode === 'long' ? gps.trim() : editingSoul?.gps || '',
+      stayDuration: accueilMode === 'long' ? stayDuration : editingSoul?.stayDuration,
+      canReceiveVisit:
+        accueilMode === 'long' ? canReceiveVisit : editingSoul?.canReceiveVisit,
+      visitDay:
+        accueilMode === 'long' && canReceiveVisit ? visitDay : editingSoul?.visitDay || '',
+      visitTime:
+        accueilMode === 'long' && canReceiveVisit ? visitTime : editingSoul?.visitTime || '',
+      visitRefusalReason:
+        accueilMode === 'long' && !canReceiveVisit
+          ? visitRefusalReason.trim()
+          : editingSoul?.visitRefusalReason || '',
+      arrivalContext:
+        accueilMode === 'long' ? arrivalContext : editingSoul?.arrivalContext,
+      arrivalSubContext:
+        accueilMode === 'long'
+          ? arrivalContext === 'Librement'
+            ? ''
+            : arrivalSubContext || (arrivalContext === 'Membre' ? 'Recommandation' : 'Annonce')
+          : editingSoul?.arrivalSubContext,
+      arrivalReferrerName:
+        accueilMode === 'long' && arrivalContext !== 'Librement'
+          ? arrivalReferrerName.trim()
+          : editingSoul?.arrivalReferrerName || '',
+      isChristian,
+      isAssemblyMember:
+        accueilMode === 'long' && isChristian
+          ? isAssemblyMember
+          : editingSoul?.isAssemblyMember,
+      isBaptized:
+        accueilMode === 'long' && isChristian ? isBaptized : editingSoul?.isBaptized,
+      isActiveInDepartment:
+        accueilMode === 'long' && isChristian && isBaptized
+          ? isActiveInDepartment
+          : editingSoul?.isActiveInDepartment,
+      consentToContact: true,
+      consentToContactDateLong: effectiveContactDateLong,
+      consentToRecord: true,
+      recordedById: editingSoul?.recordedById || currentHost?.id || '',
+      recordedByName:
+        editingSoul?.recordedByName ||
+        (currentHost ? `${currentHost.firstNames} ${currentHost.lastName}` : 'Hôte'),
+      recordedByPhone: editingSoul?.recordedByPhone || currentHost?.phone || '',
+      observation: accueilMode === 'long' ? observation.trim() : editingSoul?.observation || '',
     };
 
+    setIsSubmitting(true);
     try {
-      const id = await addNewSoul(soulPayload);
-      setCreatedSoulData({ ...soulPayload, id });
-      setShowSuccessModal(true);
+      if (isEditing && editingSoul) {
+        await updateSoul(editingSoul.id, payloadBase);
+        setSavedSoulModal({ ...editingSoul, ...payloadBase });
+      } else {
+        const newId = await addNewSoul(payloadBase);
+        setSavedSoulModal({
+          ...payloadBase,
+          id: newId,
+          normalizedPhone: phoneNumber.trim(),
+          followUpState: 'en_attente_decision',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
     } catch (err) {
-      console.error(err);
-      alert("Erreur lors de l'enregistrement de la fiche.");
+      setFormError(
+        err instanceof Error ? err.message : "Erreur lors de l'enregistrement dans Firebase."
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleResetForm = () => {
-    setLastName('');
-    setFirstNames('');
-    setNeighborhood('');
-    setAddressLandmark('');
-    setPhoneNumber('');
-    setObservation('');
-    setKnowsSomeoneInChurch(false);
-    setKnownPersonName('');
-    setCanReceiveVisit(true);
-    setVisitRefusalReason('');
-    setShowSuccessModal(false);
-    setCreatedSoulData(null);
-  };
+  const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
-  const handleAddQuickCell = async () => {
-    if (!newCellName.trim() || !newCellLeader.trim() || !newCellPhone.trim()) {
-      alert("Remplissez le nom de la cellule, le nom du responsable et son numéro.");
-      return;
-    }
-    const newId = await addPrayerCell({
-      name: newCellName.trim(),
-      neighborhood: neighborhood.trim() || 'Secteur église',
-      leaderName: newCellLeader.trim(),
-      leaderPhone: newCellPhone.trim(),
-      meetingDay: 'Mercredi',
-      meetingTime: '18h30 - 20h00',
-    });
-    setPrayerCell(newCellName.trim());
-    setShowNewCellQuickModal(false);
-    setNewCellName('');
-    setNewCellLeader('');
-    setNewCellPhone('');
-  };
-
-  const formatCleanPhone = (phone: string) => {
-    return phone.replace(/[^0-9+]/g, '');
-  };
+  const cleanPhone = (phone: string) => phone.replace(/[^0-9+]/g, '');
 
   return (
-    <div className="max-w-4xl mx-auto py-6 px-4 sm:px-6">
-      {/* Official Header */}
-      <div className="bg-indigo-950 rounded-[5px] p-6 text-white shadow-xs mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+    <div className="max-w-5xl mx-auto py-6 px-4 sm:px-6">
+      {/* Header Container - Uniform Indigo/Purple without orange bar */}
+      <div className="bg-indigo-950 rounded-[5px] p-5 sm:p-6 text-white shadow-2xs mb-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <span className="text-[11px] font-bold tracking-widest text-indigo-200 uppercase">
               Service d'Accueil & de Suivi
             </span>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white mt-0.5">
-              Fiche d'Enregistrement d'une Nouvelle Âme
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight mt-0.5">
+              {isEditing
+                ? `Compléter la fiche : ${editingSoul?.firstNames} ${editingSoul?.lastName}`
+                : 'Recevoir — Enregistrement d’une Âme'}
             </h1>
-            <p className="text-xs text-indigo-200 mt-1 max-w-2xl">
-              Renseignez les données pour attribuer immédiatement une cellule de prière et planifier le suivi.
+            <p className="text-xs text-indigo-200 mt-1">
+              Date courte : {formatShortDateFr(receptionDateIso)} · Date d'édition :{' '}
+              {formatDateFr(receptionDateIso)}
             </p>
           </div>
-          <div className="text-right shrink-0">
-            <span className="inline-block bg-indigo-900 border border-indigo-800 text-indigo-200 text-xs px-2.5 py-1 rounded-[5px] font-mono">
-              Date : {formatDateFr(receptionDate)}
-            </span>
+
+          <div className="flex items-center space-x-1 bg-indigo-900 p-1 rounded-[5px] border border-indigo-800 shrink-0 self-start">
+            <button
+              type="button"
+              onClick={() => setAccueilMode('express')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-[5px] transition ${
+                accueilMode === 'express'
+                  ? 'bg-white text-indigo-950'
+                  : 'text-indigo-200 hover:text-white'
+              }`}
+            >
+              Accueil Express
+            </button>
+            <button
+              type="button"
+              onClick={() => setAccueilMode('long')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-[5px] transition ${
+                accueilMode === 'long'
+                  ? 'bg-white text-indigo-950'
+                  : 'text-indigo-200 hover:text-white'
+              }`}
+            >
+              Accueil Long
+            </button>
           </div>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Section 1: Réception & Genre */}
-        <div className="bg-white rounded-[5px] p-5 sm:p-6 shadow-2xs border border-slate-200">
-          <div className="border-b border-slate-200 pb-3 mb-5">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950">
-              1. Date de Réception & Genre
-            </h2>
+      {/* Warning banner for Accueil Express */}
+      {accueilMode === 'express' && (
+        <div className="mb-5 p-3.5 bg-amber-50 border border-amber-300 rounded-[5px] flex items-start space-x-2.5 text-xs text-amber-950">
+          <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold">Mode Accueil Express (Enregistrement partiel)</p>
+            <p className="mt-0.5">
+              Seuls les champs essentiels sont affichés pour une réception rapide. Les champs résiduels
+              pourront être complétés plus tard en <strong>Accueil Long</strong>. La fermeture d'un
+              suivi n'est possible qu'une fois l'Accueil Long complété.
+            </p>
           </div>
+        </div>
+      )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      {formError && (
+        <div className="mb-5 p-3.5 bg-rose-50 border border-rose-300 rounded-[5px] text-xs font-semibold text-rose-900">
+          {formError}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {/* 1. Contexte d'accueil */}
+        <div className="bg-white rounded-[5px] p-5 border border-slate-200 shadow-2xs">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950 border-b border-slate-200 pb-2.5 mb-4">
+            1. Contexte d'Accueil
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                Événement d'accueil <span className="text-rose-600">*</span>
+              </label>
+              <select
+                value={welcomeContextType}
+                onChange={(e) => setWelcomeContextType(e.target.value as WelcomeContextType)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs font-semibold text-slate-900 outline-none focus:border-indigo-700"
+              >
+                {WELCOME_CONTEXT_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {welcomeContextType === 'Réunion du soir' && (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                  Jour de réunion <span className="text-rose-600">*</span>
+                </label>
+                <select
+                  value={welcomeMeetingDay}
+                  onChange={(e) => setWelcomeMeetingDay(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs font-semibold text-slate-900 outline-none focus:border-indigo-700"
+                >
+                  <option value="Mardi">Mardi</option>
+                  <option value="Jeudi">Jeudi</option>
+                </select>
+              </div>
+            )}
+
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
-                  Date de la réception <span className="text-rose-600">*</span>
+                <label className="block text-xs font-bold text-slate-700 uppercase">
+                  Date courte <span className="text-rose-600">*</span>
                 </label>
-                <span className="text-[11px] font-bold text-indigo-900 bg-indigo-50 px-2 py-0.5 rounded-[5px] border border-indigo-200 font-mono">
-                  {formatDateFr(receptionDate)}
+                <span className="text-[11px] font-mono font-semibold text-indigo-900">
+                  {formatShortDateFr(receptionDateIso)}
                 </span>
               </div>
               <div className="relative">
                 <input
                   type="date"
                   required
-                  value={receptionDate}
-                  onChange={(e) => setReceptionDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs font-medium text-slate-900 focus:bg-white focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
+                  value={receptionDateIso}
+                  onChange={(e) => setReceptionDateIso(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs font-medium text-slate-900 outline-none focus:border-indigo-700"
                 />
-                <Calendar className="w-4 h-4 text-slate-400 absolute right-3 top-2.5 pointer-events-none" />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
-                Genre de la nouvelle personne <span className="text-rose-600">*</span>
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {genderOptions.map((opt) => (
-                  <button
-                    key={opt.label}
-                    type="button"
-                    onClick={() => setGender(opt.label)}
-                    className={`py-2 px-2 rounded-[5px] border text-center transition-all ${
-                      gender === opt.label
-                        ? 'bg-indigo-900 border-indigo-900 text-white font-bold shadow-2xs'
-                        : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50 font-medium'
-                    }`}
-                  >
-                    <span className="block text-xs font-bold">{opt.label}</span>
-                    <span className={`block text-[10px] ${gender === opt.label ? 'text-indigo-200' : 'text-slate-500'}`}>
-                      {opt.sub}
-                    </span>
-                  </button>
-                ))}
+                <Calendar className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5 pointer-events-none" />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Section 2: Identité */}
-        <div className="bg-white rounded-[5px] p-5 sm:p-6 shadow-2xs border border-slate-200">
-          <div className="border-b border-slate-200 pb-3 mb-5">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950">
-              2. Identité & Coordonnées
-            </h2>
-          </div>
+        {/* 2. Identité (Téléphone = clé unique) */}
+        <div className="bg-white rounded-[5px] p-5 border border-slate-200 shadow-2xs">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950 border-b border-slate-200 pb-2.5 mb-4">
+            2. Identité de l'Âme
+          </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                Téléphone (Clé unique) <span className="text-rose-600">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="tel"
+                  required
+                  placeholder="Ex: 0700112233"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className={`w-full px-3 py-2 bg-slate-50 border rounded-[5px] text-xs font-bold font-mono text-slate-900 outline-none focus:bg-white ${
+                    duplicateSoul ? 'border-rose-500 ring-1 ring-rose-500' : 'border-slate-300 focus:border-indigo-700'
+                  }`}
+                />
+                <Phone className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5 pointer-events-none" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
                 Nom <span className="text-rose-600">*</span>
               </label>
               <div className="relative">
@@ -298,73 +546,135 @@ export const SoulRegistrationForm: React.FC<SoulRegistrationFormProps> = ({ onSu
                   placeholder="Ex: KOUASSI"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs font-medium text-slate-900 uppercase focus:bg-white focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs font-medium text-slate-900 uppercase outline-none focus:bg-white focus:border-indigo-700"
                 />
                 <User className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5 pointer-events-none" />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
                 Prénoms <span className="text-rose-600">*</span>
               </label>
               <input
                 type="text"
                 required
-                placeholder="Ex: Emmanuel Jean-Luc"
+                placeholder="Ex: Emmanuel"
                 value={firstNames}
                 onChange={(e) => setFirstNames(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs font-medium text-slate-900 capitalize focus:bg-white focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs font-medium text-slate-900 capitalize outline-none focus:bg-white focus:border-indigo-700"
               />
             </div>
 
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
-                Numéro de téléphone <span className="text-rose-600">*</span>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                Catégorie / Genre
               </label>
-              <div className="relative">
-                <input
-                  type="tel"
-                  required
-                  placeholder="Ex: +225 07 00 11 22 33"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs font-bold text-slate-900 tracking-wide focus:bg-white focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
-                />
-                <Phone className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5 pointer-events-none" />
-              </div>
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value as SoulGender)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs font-semibold text-slate-900 outline-none focus:border-indigo-700"
+              >
+                <option value="HOMME">HOMME</option>
+                <option value="FEMME">FEMME</option>
+                <option value="JEUNE">JEUNE</option>
+                <option value="ENFANT">ENFANT</option>
+              </select>
             </div>
           </div>
+
+          {/* Alerte doublon téléphone */}
+          {duplicateSoul && (
+            <div className="mt-4 p-3.5 bg-rose-50 border border-rose-300 rounded-[5px] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div className="text-rose-950">
+                <p className="font-bold">
+                  Doublon détecté : Ce numéro appartient déjà à {duplicateSoul.firstNames}{' '}
+                  {duplicateSoul.lastName}
+                </p>
+                <p className="text-rose-800 mt-0.5">
+                  Mode actuel :{' '}
+                  <strong>
+                    {duplicateSoul.accueilMode === 'express' ? 'Accueil Express (Partiel)' : 'Accueil Long'}
+                  </strong>{' '}
+                  · Reçu(e) le {duplicateSoul.receptionDate} ({duplicateSoul.commune} / {duplicateSoul.quartier})
+                </p>
+              </div>
+              {onSelectExistingSoulToEdit && (
+                <button
+                  type="button"
+                  onClick={() => onSelectExistingSoulToEdit(duplicateSoul)}
+                  className="inline-flex items-center space-x-1.5 px-3 py-2 bg-indigo-900 hover:bg-indigo-800 text-white rounded-[5px] font-bold shrink-0"
+                >
+                  <span>Ouvrir la fiche existante pour la compléter</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Section 3: Habitation & Repère (Exact label: "Repère") */}
-        <div className="bg-white rounded-[5px] p-5 sm:p-6 shadow-2xs border border-slate-200">
-          <div className="border-b border-slate-200 pb-3 mb-5">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950">
-              3. Habitation & Localisation
-            </h2>
-          </div>
+        {/* 3. Localisation */}
+        <div className="bg-white rounded-[5px] p-5 border border-slate-200 shadow-2xs">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950 border-b border-slate-200 pb-2.5 mb-4">
+            3. Localisation
+          </h2>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
-                Quartier d'habitation <span className="text-rose-600">*</span>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                Commune <span className="text-rose-600">*</span>
               </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  placeholder="Ex: Yopougon Maroc, Cocody Riviera 3..."
-                  value={neighborhood}
-                  onChange={(e) => setNeighborhood(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs font-medium text-slate-900 focus:bg-white focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
-                />
-                <MapPin className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5 pointer-events-none" />
-              </div>
+              <select
+                value={commune}
+                onChange={(e) => handleCommuneChange(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs font-semibold text-slate-900 outline-none focus:border-indigo-700"
+              >
+                {communes.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                Quartier <span className="text-rose-600">*</span>
+              </label>
+              <select
+                value={quartier}
+                onChange={(e) => handleQuartierChange(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs font-semibold text-slate-900 outline-none focus:border-indigo-700"
+              >
+                {quartiers.map((q) => (
+                  <option key={q} value={q}>
+                    {q}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                Secteur <span className="text-rose-600">*</span>
+              </label>
+              <select
+                value={secteur}
+                onChange={(e) => setSecteur(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs font-semibold text-slate-900 outline-none focus:border-indigo-700"
+              >
+                {secteurs.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+            <div className={accueilMode === 'express' ? 'sm:col-span-3' : ''}>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
                 Repère
               </label>
               <div className="relative">
@@ -373,392 +683,567 @@ export const SoulRegistrationForm: React.FC<SoulRegistrationFormProps> = ({ onSu
                   placeholder="Ex: Face à la pharmacie, portail bleu"
                   value={addressLandmark}
                   onChange={(e) => setAddressLandmark(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs font-medium text-slate-900 focus:bg-white focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs font-medium text-slate-900 outline-none focus:bg-white focus:border-indigo-700"
                 />
                 <Navigation className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5 pointer-events-none" />
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Section 4: Cellule de Prière */}
-        <div className="bg-white rounded-[5px] p-5 sm:p-6 shadow-2xs border border-slate-200">
-          <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-5">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950">
-              4. Cellule de Prière Confiée
-            </h2>
-            <button
-              type="button"
-              onClick={() => setShowNewCellQuickModal(true)}
-              className="text-xs font-bold text-indigo-900 hover:underline flex items-center space-x-1"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>+ Nouvelle cellule</span>
-            </button>
-          </div>
+            {accueilMode === 'long' && (
+              <>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                    GPS (Coordonnées)
+                  </label>
+                  <div className="flex space-x-1.5">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        placeholder="Lat, Lng ou lien Maps"
+                        value={gps}
+                        onChange={(e) => setGps(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs font-mono text-slate-900 outline-none focus:bg-white focus:border-indigo-700"
+                      />
+                      <MapPin className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCaptureGps}
+                      disabled={locatingGps}
+                      title="Capturer la position actuelle"
+                      className="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-[5px] text-slate-700 text-xs font-bold shrink-0"
+                    >
+                      <Crosshair className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
-              Cellule de prière attribuée <span className="text-rose-600">*</span>
-            </label>
-            {prayerCells.length === 0 ? (
-              <div className="p-3 bg-slate-50 border border-dashed border-slate-300 rounded-[5px] text-xs">
-                <p className="text-slate-700 font-medium mb-2">
-                  Aucune cellule de prière n'a encore été créée.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setShowNewCellQuickModal(true)}
-                  className="px-3 py-1.5 bg-indigo-900 hover:bg-indigo-800 text-white font-bold rounded-[5px] inline-flex items-center space-x-1 shadow-2xs"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>+ Créer la première cellule de prière</span>
-                </button>
-              </div>
-            ) : (
-              <select
-                value={prayerCell}
-                onChange={(e) => setPrayerCell(e.target.value)}
-                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-300 rounded-[5px] text-xs font-semibold text-slate-900 focus:bg-white focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 outline-none"
-              >
-                {prayerCells.map((c) => (
-                  <option key={c.id} value={c.name}>
-                    {c.name} — Responsable : {c.leaderName} ({c.leaderPhone})
-                  </option>
-                ))}
-              </select>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                    Durée sur place
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['Permanent', 'Provisoire'] as StayDuration[]).map((dur) => (
+                      <button
+                        key={dur}
+                        type="button"
+                        onClick={() => setStayDuration(dur)}
+                        className={`py-2 px-3 rounded-[5px] border text-xs font-bold transition ${
+                          stayDuration === dur
+                            ? 'bg-indigo-900 border-indigo-900 text-white'
+                            : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {dur}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </div>
 
-        {/* Section 5: Visite */}
-        <div className="bg-white rounded-[5px] p-5 sm:p-6 shadow-2xs border border-slate-200">
-          <div className="border-b border-slate-200 pb-3 mb-5">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950">
-              5. Visite à Domicile
-            </h2>
-          </div>
+        {/* 4. Visite à domicile & Contexte d'arrivée (Accueil Long uniquement) */}
+        {accueilMode === 'long' && (
+          <>
+            <div className="bg-white rounded-[5px] p-5 border border-slate-200 shadow-2xs">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950 border-b border-slate-200 pb-2.5 mb-4">
+                4. Visite à Domicile
+              </h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                    Peut-elle recevoir de la visite ?
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 max-w-xs">
+                    <button
+                      type="button"
+                      onClick={() => setCanReceiveVisit(true)}
+                      className={`py-2 px-3 rounded-[5px] border text-xs font-bold ${
+                        canReceiveVisit
+                          ? 'bg-indigo-900 border-indigo-900 text-white'
+                          : 'bg-white border-slate-300 text-slate-700'
+                      }`}
+                    >
+                      OUI
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCanReceiveVisit(false)}
+                      className={`py-2 px-3 rounded-[5px] border text-xs font-bold ${
+                        !canReceiveVisit
+                          ? 'bg-rose-900 border-rose-900 text-white'
+                          : 'bg-white border-slate-300 text-slate-700'
+                      }`}
+                    >
+                      NON
+                    </button>
+                  </div>
+                </div>
 
-          <div className="space-y-4">
+                {canReceiveVisit ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-3 rounded-[5px] border border-slate-200">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Jour de visite souhaité
+                      </label>
+                      <select
+                        value={visitDay}
+                        onChange={(e) => setVisitDay(e.target.value)}
+                        className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-[5px] text-xs font-medium text-slate-900"
+                      >
+                        {daysOfWeek.map((d) => (
+                          <option key={d} value={d}>
+                            {d}
+                          </option>
+                        ))}
+                        <option value="En semaine">En semaine</option>
+                        <option value="Samedi ou Dimanche">Samedi ou Dimanche</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Heure souhaitée
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Ex: 16h00"
+                        value={visitTime}
+                        onChange={(e) => setVisitTime(e.target.value)}
+                        className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-[5px] text-xs font-medium text-slate-900"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-amber-50 p-3 rounded-[5px] border border-amber-300">
+                    <label className="block text-xs font-bold text-amber-950 uppercase mb-1">
+                      Motif du refus de visite <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required={!canReceiveVisit}
+                      placeholder="Ex: Contraintes professionnelles, préfère un appel..."
+                      value={visitRefusalReason}
+                      onChange={(e) => setVisitRefusalReason(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-white border border-amber-300 rounded-[5px] text-xs text-slate-900"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-[5px] p-5 border border-slate-200 shadow-2xs">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950 border-b border-slate-200 pb-2.5 mb-4">
+                5. Contexte d'Arrivée
+              </h2>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {(['Membre', 'Invitation', 'Librement'] as ArrivalContextType[]).map((ctx) => (
+                    <button
+                      key={ctx}
+                      type="button"
+                      onClick={() => {
+                        setArrivalContext(ctx);
+                        if (ctx === 'Membre') setArrivalSubContext('Recommandation');
+                        else if (ctx === 'Invitation') setArrivalSubContext('Annonce');
+                        else setArrivalSubContext('');
+                      }}
+                      className={`py-2 px-3 rounded-[5px] border text-xs font-bold transition ${
+                        arrivalContext === ctx
+                          ? 'bg-indigo-900 border-indigo-900 text-white'
+                          : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      {ctx}
+                    </button>
+                  ))}
+                </div>
+
+                {arrivalContext === 'Membre' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-3 rounded-[5px] border border-slate-200">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Précision (Membre)
+                      </label>
+                      <select
+                        value={arrivalSubContext || 'Recommandation'}
+                        onChange={(e) => setArrivalSubContext(e.target.value)}
+                        className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-[5px] text-xs font-semibold text-slate-900"
+                      >
+                        <option value="Recommandation">Recommandation</option>
+                        <option value="Sans recommandation">Sans recommandation</option>
+                      </select>
+                    </div>
+                    {arrivalSubContext !== 'Sans recommandation' && (
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                          Nom du recommandataire
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Nom et prénoms"
+                          value={arrivalReferrerName}
+                          onChange={(e) => setArrivalReferrerName(e.target.value)}
+                          className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-[5px] text-xs text-slate-900"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {arrivalContext === 'Invitation' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-3 rounded-[5px] border border-slate-200">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                        Source de l'invitation
+                      </label>
+                      <select
+                        value={arrivalSubContext || 'Annonce'}
+                        onChange={(e) => setArrivalSubContext(e.target.value)}
+                        className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-[5px] text-xs font-semibold text-slate-900"
+                      >
+                        <option value="Annonce">Annonce</option>
+                        <option value="Membre">Membre</option>
+                      </select>
+                    </div>
+                    {arrivalSubContext === 'Membre' && (
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                          Nom du membre ayant invité
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Nom et prénoms du membre"
+                          value={arrivalReferrerName}
+                          onChange={(e) => setArrivalReferrerName(e.target.value)}
+                          className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-[5px] text-xs text-slate-900"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* 6. Vie spirituelle (Cascade) */}
+        <div className="bg-white rounded-[5px] p-5 border border-slate-200 shadow-2xs">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950 border-b border-slate-200 pb-2.5 mb-4">
+            {accueilMode === 'long' ? '6. Vie Spirituelle' : '4. Vie Spirituelle'}
+          </h2>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5">
-                Peut-elle recevoir de la visite ? <span className="text-rose-600">*</span>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                Chrétien ? <span className="text-rose-600">*</span>
               </label>
-              <div className="grid grid-cols-2 gap-3 max-w-sm">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  onClick={() => setCanReceiveVisit(true)}
-                  className={`py-2 px-3 rounded-[5px] border text-xs font-bold transition ${
-                    canReceiveVisit
+                  onClick={() => setIsChristian(true)}
+                  className={`py-2 rounded-[5px] border text-xs font-bold ${
+                    isChristian
                       ? 'bg-indigo-900 border-indigo-900 text-white'
-                      : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                      : 'bg-white border-slate-300 text-slate-700'
                   }`}
                 >
-                  OUI
+                  Oui
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCanReceiveVisit(false)}
-                  className={`py-2 px-3 rounded-[5px] border text-xs font-bold transition ${
-                    !canReceiveVisit
-                      ? 'bg-rose-900 border-rose-900 text-white'
-                      : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                  onClick={() => {
+                    setIsChristian(false);
+                    setIsAssemblyMember(false);
+                    setIsBaptized(false);
+                    setIsActiveInDepartment(false);
+                  }}
+                  className={`py-2 rounded-[5px] border text-xs font-bold ${
+                    !isChristian
+                      ? 'bg-slate-800 border-slate-800 text-white'
+                      : 'bg-white border-slate-300 text-slate-700'
                   }`}
                 >
-                  NON
+                  Non
                 </button>
               </div>
             </div>
 
-            {canReceiveVisit ? (
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-[5px] grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {accueilMode === 'long' && isChristian && (
+              <>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">
-                    Jour de la visite <span className="text-rose-600">*</span>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                    Membre de l'assemblée ?
                   </label>
-                  <select
-                    value={visitDay}
-                    onChange={(e) => setVisitDay(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-[5px] text-xs font-medium text-slate-900 outline-none"
-                  >
-                    {daysOfWeek.map((day) => (
-                      <option key={day} value={day}>{day}</option>
-                    ))}
-                    <option value="En semaine">En semaine</option>
-                    <option value="Samedi ou Dimanche">Samedi ou Dimanche</option>
-                  </select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsAssemblyMember(true)}
+                      className={`py-2 rounded-[5px] border text-xs font-bold ${
+                        isAssemblyMember
+                          ? 'bg-indigo-900 border-indigo-900 text-white'
+                          : 'bg-white border-slate-300 text-slate-700'
+                      }`}
+                    >
+                      Oui
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsAssemblyMember(false)}
+                      className={`py-2 rounded-[5px] border text-xs font-bold ${
+                        !isAssemblyMember
+                          ? 'bg-slate-800 border-slate-800 text-white'
+                          : 'bg-white border-slate-300 text-slate-700'
+                      }`}
+                    >
+                      Non
+                    </button>
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">
-                    Heure de la visite <span className="text-rose-600">*</span>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                    Baptisé(e) ?
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Ex: 16h00 ou 18h30"
-                    value={visitTime}
-                    onChange={(e) => setVisitTime(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-[5px] text-xs font-medium text-slate-900 outline-none"
-                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsBaptized(true)}
+                      className={`py-2 rounded-[5px] border text-xs font-bold ${
+                        isBaptized
+                          ? 'bg-indigo-900 border-indigo-900 text-white'
+                          : 'bg-white border-slate-300 text-slate-700'
+                      }`}
+                    >
+                      Oui
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsBaptized(false);
+                        setIsActiveInDepartment(false);
+                      }}
+                      className={`py-2 rounded-[5px] border text-xs font-bold ${
+                        !isBaptized
+                          ? 'bg-slate-800 border-slate-800 text-white'
+                          : 'bg-white border-slate-300 text-slate-700'
+                      }`}
+                    >
+                      Non
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="p-3 bg-amber-50/70 border border-amber-300 rounded-[5px]">
-                <label className="block text-xs font-bold text-amber-950 uppercase tracking-wide mb-1">
-                  Pourquoi ? (Motif du refus de visite) <span className="text-rose-600">*</span>
-                </label>
-                <input
-                  type="text"
-                  required={!canReceiveVisit}
-                  placeholder="Ex: Horaires de travail, indisponibilité temporaire, préfère un appel..."
-                  value={visitRefusalReason}
-                  onChange={(e) => setVisitRefusalReason(e.target.value)}
-                  className="w-full px-3 py-1.5 bg-white border border-amber-300 rounded-[5px] text-xs text-slate-900 outline-none"
-                />
-              </div>
+
+                {isBaptized && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                      Actif dans un département ?
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsActiveInDepartment(true)}
+                        className={`py-2 rounded-[5px] border text-xs font-bold ${
+                          isActiveInDepartment
+                            ? 'bg-indigo-900 border-indigo-900 text-white'
+                            : 'bg-white border-slate-300 text-slate-700'
+                        }`}
+                      >
+                        Oui
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsActiveInDepartment(false)}
+                        className={`py-2 rounded-[5px] border text-xs font-bold ${
+                          !isActiveInDepartment
+                            ? 'bg-slate-800 border-slate-800 text-white'
+                            : 'bg-white border-slate-300 text-slate-700'
+                        }`}
+                      >
+                        Non
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
 
-        {/* Section 6: Connaissance dans l'Église */}
-        <div className="bg-white rounded-[5px] p-5 sm:p-6 shadow-2xs border border-slate-200">
-          <div className="border-b border-slate-200 pb-3 mb-5">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950">
-              6. Connaissance dans l'Église
-            </h2>
-          </div>
+        {/* Consentements & Observation */}
+        <div className="bg-white rounded-[5px] p-5 border border-slate-200 shadow-2xs space-y-4">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950 border-b border-slate-200 pb-2.5">
+            Consentements & Validation
+          </h2>
 
           <div className="space-y-3">
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">
-              Connaît-elle quelqu'un dans l'église ? <span className="text-rose-600">*</span>
+            <label className="flex items-start space-x-3 p-3 bg-slate-50 border border-slate-200 rounded-[5px] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={consentToContact}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setConsentToContact(checked);
+                  if (checked) {
+                    setConsentToContactDateLong(formatLongDateFr(new Date()));
+                  } else {
+                    setConsentToContactDateLong('');
+                  }
+                }}
+                className="mt-0.5 h-4 w-4 text-indigo-900 border-slate-300 rounded-[3px]"
+              />
+              <div className="text-xs">
+                <span className="font-bold text-slate-900">
+                  Accord pour contacter <span className="text-rose-600">*</span>
+                </span>
+                <p className="text-slate-600 mt-0.5">
+                  L'âme donne librement et volontairement son accord explicite pour être contactée dans le cadre de son accompagnement.
+                </p>
+                {consentToContact && consentToContactDateLong && (
+                  <p className="text-[11px] font-mono text-indigo-900 font-semibold mt-1">
+                    Acté le : {consentToContactDateLong}
+                  </p>
+                )}
+              </div>
             </label>
-            <div className="grid grid-cols-2 gap-3 max-w-sm">
-              <button
-                type="button"
-                onClick={() => setKnowsSomeoneInChurch(true)}
-                className={`py-2 px-3 rounded-[5px] border text-xs font-bold transition ${
-                  knowsSomeoneInChurch
-                    ? 'bg-indigo-900 border-indigo-900 text-white'
-                    : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                OUI
-              </button>
-              <button
-                type="button"
-                onClick={() => setKnowsSomeoneInChurch(false)}
-                className={`py-2 px-3 rounded-[5px] border text-xs font-bold transition ${
-                  !knowsSomeoneInChurch
-                    ? 'bg-slate-800 border-slate-800 text-white'
-                    : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
-                }`}
-              >
-                NON
-              </button>
-            </div>
 
-            {knowsSomeoneInChurch && (
-              <div className="pt-2">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">
-                  Nom de la personne <span className="text-rose-600">*</span>
-                </label>
-                <input
-                  type="text"
-                  required={knowsSomeoneInChurch}
-                  placeholder="Ex: Frère Paul Kouadio, Diaconesse Mireille..."
-                  value={knownPersonName}
-                  onChange={(e) => setKnownPersonName(e.target.value)}
-                  className="w-full max-w-md px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs font-medium text-slate-900 outline-none"
-                />
+            <label className="flex items-start space-x-3 p-3 bg-slate-50 border border-slate-200 rounded-[5px] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={consentToRecord}
+                onChange={(e) => setConsentToRecord(e.target.checked)}
+                className="mt-0.5 h-4 w-4 text-indigo-900 border-slate-300 rounded-[3px]"
+              />
+              <div className="text-xs">
+                <span className="font-bold text-slate-900">
+                  Accord pour enregistrement <span className="text-rose-600">*</span>
+                </span>
+                <p className="text-slate-600 mt-0.5">
+                  L'âme consent librement et explicitement à l'enregistrement de ses données personnelles avant validation de cette fiche.
+                </p>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Section 7: Enregistré par & Observation */}
-        <div className="bg-white rounded-[5px] p-5 sm:p-6 shadow-2xs border border-slate-200">
-          <div className="border-b border-slate-200 pb-3 mb-5">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950">
-              7. Enregistreur & Observation
-            </h2>
+            </label>
           </div>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">
-                  Nom de la personne qui l'a enregistrée <span className="text-rose-600">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ex: Frère Marc"
-                  value={recordedByName}
-                  onChange={(e) => setRecordedByName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs font-medium text-slate-900 outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">
-                  Son numéro de téléphone
-                </label>
-                <input
-                  type="tel"
-                  placeholder="Ex: +225 07 11 22 33 44"
-                  value={recordedByPhone}
-                  onChange={(e) => setRecordedByPhone(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs font-medium text-slate-900 outline-none"
-                />
-              </div>
-            </div>
-
+          {accueilMode === 'long' && (
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">
-                Observation
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1.5">
+                Observation / Requête de prière
               </label>
               <textarea
                 rows={3}
-                placeholder="Remarques, requêtes de prière, demande de baptême..."
+                placeholder="Notes complémentaires recueillies lors de la réception..."
                 value={observation}
                 onChange={(e) => setObservation(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs text-slate-900 outline-none"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-[5px] text-xs text-slate-900 outline-none focus:bg-white focus:border-indigo-700"
               />
             </div>
+          )}
+
+          <div className="text-xs text-slate-500 pt-1">
+            Enregistré par :{' '}
+            <strong className="text-slate-800">
+              {currentHost ? `${currentHost.firstNames} ${currentHost.lastName}` : '-'}
+            </strong>
+            {currentHost?.phone && ` (${currentHost.phone})`}
           </div>
         </div>
 
-        {/* Buttons - Flutter style radius: 5px */}
-        <div className="flex flex-col sm:flex-row items-center justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-2">
-          <button
-            type="button"
-            onClick={handleResetForm}
-            className="w-full sm:w-auto px-4 py-2.5 text-xs font-bold text-slate-700 bg-slate-200 hover:bg-slate-300 rounded-[5px] transition"
-          >
-            Réinitialiser
-          </button>
+        {/* Actions */}
+        <div className="flex flex-col sm:flex-row items-center justify-end gap-2.5 pt-2">
+          {isEditing && onCancelEdit ? (
+            <button
+              type="button"
+              onClick={onCancelEdit}
+              className="w-full sm:w-auto px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-[5px] text-xs font-bold"
+            >
+              Annuler la modification
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleReset}
+              className="w-full sm:w-auto px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-[5px] text-xs font-bold"
+            >
+              Réinitialiser
+            </button>
+          )}
 
           <button
             type="submit"
-            disabled={isSubmitting}
-            className="w-full sm:w-auto px-6 py-2.5 bg-indigo-900 hover:bg-indigo-800 text-white text-xs font-bold rounded-[5px] shadow-2xs transition disabled:opacity-50"
+            disabled={isSubmitting || Boolean(duplicateSoul)}
+            className="w-full sm:w-auto px-6 py-2.5 bg-indigo-900 hover:bg-indigo-800 text-white rounded-[5px] text-xs font-bold shadow-2xs transition disabled:opacity-50"
           >
-            {isSubmitting ? 'Enregistrement en cours...' : 'Enregistrer la Nouvelle Âme'}
+            {isSubmitting
+              ? 'Enregistrement dans Firebase...'
+              : isEditing
+              ? 'Mettre à jour la fiche'
+              : `Valider (${accueilMode === 'express' ? 'Accueil Express' : 'Accueil Long'})`}
           </button>
         </div>
       </form>
 
       {/* Success Modal */}
-      {showSuccessModal && createdSoulData && (
+      {savedSoulModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-2xs">
-          <div className="bg-white rounded-[5px] max-w-md w-full p-6 shadow-xl border border-slate-300">
-            <h3 className="text-base font-bold text-slate-900 text-center mb-1">
-              Fiche Enregistrée avec Succès
+          <div className="bg-white rounded-[5px] max-w-md w-full p-6 border border-slate-300 shadow-xl">
+            <div className="w-10 h-10 rounded-[5px] bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto mb-3">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 text-center">
+              {isEditing ? 'Fiche Mise à Jour dans Firebase' : 'Âme Enregistrée dans Firebase'}
             </h3>
-            <p className="text-center text-xs text-slate-600 mb-5">
-              <strong>{createdSoulData.firstNames} {createdSoulData.lastName}</strong> ({createdSoulData.gender}) a été enregistré(e) et affecté(e) à la cellule <strong>{createdSoulData.prayerCell}</strong>.
+            <p className="text-xs text-slate-600 text-center mt-1 mb-5">
+              <strong>
+                {savedSoulModal.firstNames} {savedSoulModal.lastName}
+              </strong>{' '}
+              ({savedSoulModal.commune} · {savedSoulModal.quartier} · {savedSoulModal.secteur}) a
+              bien été sauvegardé(e) en mode{' '}
+              <strong>
+                {savedSoulModal.accueilMode === 'express' ? 'Accueil Express' : 'Accueil Long'}
+              </strong>
+              .
             </p>
 
             <div className="space-y-2">
               <a
-                href={`https://wa.me/${formatCleanPhone(createdSoulData.phoneNumber)}?text=${encodeURIComponent(
-                  `Chalom ${createdSoulData.firstNames},\nNous vous remercions chaleureusement pour votre présence à l'église. Vous êtes confié(e) à la cellule de prière "${createdSoulData.prayerCell}". Que Dieu vous bénisse abondamment !`
+                href={`https://wa.me/${cleanPhone(savedSoulModal.phoneNumber)}?text=${encodeURIComponent(
+                  `Chalom ${savedSoulModal.firstNames},\nNous vous remercions chaleureusement pour votre présence (${savedSoulModal.welcomeContextType}). Que Dieu vous bénisse abondamment !`
                 )}`}
                 target="_blank"
                 rel="noreferrer"
-                className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-[5px] text-xs font-bold transition"
+                className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-[5px] text-xs font-bold"
               >
                 <Send className="w-3.5 h-3.5" />
-                <span>Envoyer WhatsApp de Bienvenue</span>
+                <span>Message WhatsApp de Bienvenue</span>
               </a>
 
-              <div className="grid grid-cols-2 gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={handleResetForm}
-                  className="w-full py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-[5px] text-xs font-bold transition"
-                >
-                  + Nouveau Formulaire
-                </button>
-
+              <div className="grid grid-cols-2 gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => {
-                    setShowSuccessModal(false);
+                    setSavedSoulModal(null);
+                    if (isEditing && onCancelEdit) {
+                      onCancelEdit();
+                    } else {
+                      handleReset();
+                    }
+                  }}
+                  className="py-2 px-3 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-[5px] text-xs font-bold"
+                >
+                  {isEditing ? 'Continuer' : '+ Recevoir une autre Âme'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSavedSoulModal(null);
                     if (onSuccessNavigate) onSuccessNavigate();
                   }}
-                  className="w-full py-2 px-3 bg-indigo-900 hover:bg-indigo-800 text-white rounded-[5px] text-xs font-bold transition"
+                  className="py-2 px-3 bg-indigo-900 hover:bg-indigo-800 text-white rounded-[5px] text-xs font-bold"
                 >
-                  Voir Grand Tableau
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Quick Add Prayer Cell Modal */}
-      {showNewCellQuickModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-2xs">
-          <div className="bg-white rounded-[5px] max-w-md w-full p-5 shadow-xl border border-slate-300">
-            <h3 className="text-sm font-bold text-slate-900 uppercase mb-3">
-              Créer une Cellule de Prière
-            </h3>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  Nom de la cellule
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: Béthanie"
-                  value={newCellName}
-                  onChange={(e) => setNewCellName(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-[5px] outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  Responsable
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: Frère David"
-                  value={newCellLeader}
-                  onChange={(e) => setNewCellLeader(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-[5px] outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  Téléphone du Responsable
-                </label>
-                <input
-                  type="tel"
-                  placeholder="Ex: +225 07..."
-                  value={newCellPhone}
-                  onChange={(e) => setNewCellPhone(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-[5px] outline-none"
-                />
-              </div>
-
-              <div className="flex items-center justify-end space-x-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowNewCellQuickModal(false)}
-                  className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:text-slate-800"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAddQuickCell}
-                  className="px-4 py-1.5 bg-indigo-900 hover:bg-indigo-800 text-white rounded-[5px] text-xs font-bold transition"
-                >
-                  Ajouter
+                  Voir Registre & Assignation
                 </button>
               </div>
             </div>

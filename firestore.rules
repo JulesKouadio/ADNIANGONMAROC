@@ -2,73 +2,193 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Default deny all
+    // Global deny by default
     match /{document=**} {
       allow read, write: if false;
     }
 
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isVerifiedUser() {
-      return isSignedIn() && request.auth.token.email_verified == true;
-    }
-
-    function isAdmin() {
-      return isVerifiedUser() && (
-        request.auth.token.email == 'ferdinandkouadio1996@gmail.com' ||
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
-      );
+    function incoming() {
+      return request.resource.data;
     }
 
     function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isOptString(data, field, maxLen) {
+      return !(field in data) || (data[field] is string && data[field].size() <= maxLen);
+    }
+
+    function isOptBool(data, field) {
+      return !(field in data) || (data[field] is bool);
+    }
+
+    function isValidHost(data) {
+      return data.keys().hasAll([
+        'username', 'passwordHash', 'mustSetPassword', 'lastName',
+        'firstNames', 'phone', 'role', 'subRole', 'status', 'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'id', 'username', 'passwordHash', 'mustSetPassword', 'lastName',
+        'firstNames', 'phone', 'location', 'role', 'subRole', 'teamId', 'teamName',
+        'status', 'createdAt', 'updatedAt'
+      ])
+      && data.username is string && data.username.size() > 0 && data.username.size() <= 60
+      && data.passwordHash is string && data.passwordHash.size() <= 128
+      && data.mustSetPassword is bool
+      && data.lastName is string && data.lastName.size() > 0 && data.lastName.size() <= 100
+      && data.firstNames is string && data.firstNames.size() > 0 && data.firstNames.size() <= 150
+      && data.phone is string && data.phone.size() <= 30
+      && isOptString(data, 'location', 150)
+      && (data.role in ['Responsable', "Chef d'équipe", 'Accompagnateur'])
+      && (data.subRole in ['Responsable principal', 'Responsable adjoint', "Chef d'équipe", 'Accompagnateur'])
+      && isOptString(data, 'teamId', 128)
+      && isOptString(data, 'teamName', 100)
+      && (data.status in ['active', 'suspended'])
+      && data.createdAt is string && data.createdAt.size() <= 50
+      && data.updatedAt is string && data.updatedAt.size() <= 50;
+    }
+
+    function isValidTeam(data) {
+      return data.keys().hasAll(['name', 'leaderId', 'leaderName', 'status', 'createdAt', 'updatedAt'])
+      && data.keys().hasOnly(['id', 'name', 'leaderId', 'leaderName', 'leaderPhone', 'status', 'createdAt', 'updatedAt'])
+      && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+      && data.leaderId is string && data.leaderId.size() > 0 && data.leaderId.size() <= 128
+      && data.leaderName is string && data.leaderName.size() > 0 && data.leaderName.size() <= 200
+      && isOptString(data, 'leaderPhone', 30)
+      && (data.status in ['active', 'suspended'])
+      && data.createdAt is string && data.createdAt.size() <= 50
+      && data.updatedAt is string && data.updatedAt.size() <= 50;
     }
 
     function isValidNewSoul(data) {
       return data.keys().hasAll([
-        'receptionDate', 'gender', 'lastName', 'firstNames', 'neighborhood',
-        'phoneNumber', 'prayerCell', 'canReceiveVisit', 'knowsSomeoneInChurch', 'recordedByName'
+        'accueilMode', 'welcomeContextType', 'receptionDate', 'lastName', 'firstNames',
+        'phoneNumber', 'normalizedPhone', 'commune', 'quartier', 'secteur',
+        'isChristian', 'consentToContact', 'consentToContactDateLong', 'consentToRecord',
+        'recordedByName', 'followUpState', 'createdAt', 'updatedAt'
       ])
-      && data.receptionDate is string && data.receptionDate.size() <= 30
-      && (data.gender in ['HOMME', 'FEMME', 'JEUNE', 'ENFANT'])
+      && data.keys().hasOnly([
+        'id', 'accueilMode', 'welcomeContextType', 'welcomeMeetingDay', 'receptionDate',
+        'gender', 'lastName', 'firstNames', 'phoneNumber', 'normalizedPhone',
+        'commune', 'quartier', 'secteur', 'addressLandmark', 'gps', 'stayDuration',
+        'canReceiveVisit', 'visitDay', 'visitTime', 'visitRefusalReason',
+        'arrivalContext', 'arrivalSubContext', 'arrivalReferrerName',
+        'isChristian', 'isAssemblyMember', 'isBaptized', 'isActiveInDepartment',
+        'consentToContact', 'consentToContactDateLong', 'consentToRecord',
+        'recordedById', 'recordedByName', 'recordedByPhone', 'observation',
+        'assignedTeamId', 'assignedTeamName', 'assignedAccompagnateurId', 'assignedAccompagnateurName',
+        'followUpState', 'closureReason', 'closureReasonOther', 'closedByName', 'closedAtDateLong',
+        'openedByName', 'openedAtDateLong', 'discipulat', 'createdAt', 'updatedAt'
+      ])
+      && (data.accueilMode in ['express', 'long'])
+      && (data.welcomeContextType in ['Culte', 'Réunion du soir', "Campagne d'évangélisation", "Semaine d'accentuation"])
+      && isOptString(data, 'welcomeMeetingDay', 30)
+      && data.receptionDate is string && data.receptionDate.size() > 0 && data.receptionDate.size() <= 40
+      && (!('gender' in data) || (data.gender in ['HOMME', 'FEMME', 'JEUNE', 'ENFANT']))
       && data.lastName is string && data.lastName.size() > 0 && data.lastName.size() <= 100
       && data.firstNames is string && data.firstNames.size() > 0 && data.firstNames.size() <= 150
-      && data.neighborhood is string && data.neighborhood.size() > 0 && data.neighborhood.size() <= 150
       && data.phoneNumber is string && data.phoneNumber.size() > 0 && data.phoneNumber.size() <= 30
-      && data.prayerCell is string && data.prayerCell.size() <= 100
-      && data.canReceiveVisit is bool
-      && data.knowsSomeoneInChurch is bool
-      && data.recordedByName is string && data.recordedByName.size() <= 150;
+      && data.normalizedPhone is string && data.normalizedPhone.size() > 0 && data.normalizedPhone.size() <= 30
+      && data.commune is string && data.commune.size() > 0 && data.commune.size() <= 100
+      && data.quartier is string && data.quartier.size() > 0 && data.quartier.size() <= 100
+      && data.secteur is string && data.secteur.size() > 0 && data.secteur.size() <= 100
+      && isOptString(data, 'addressLandmark', 300)
+      && isOptString(data, 'gps', 120)
+      && isOptString(data, 'stayDuration', 30)
+      && isOptBool(data, 'canReceiveVisit')
+      && isOptString(data, 'visitDay', 50)
+      && isOptString(data, 'visitTime', 50)
+      && isOptString(data, 'visitRefusalReason', 300)
+      && isOptString(data, 'arrivalContext', 50)
+      && isOptString(data, 'arrivalSubContext', 80)
+      && isOptString(data, 'arrivalReferrerName', 150)
+      && data.isChristian is bool
+      && isOptBool(data, 'isAssemblyMember')
+      && isOptBool(data, 'isBaptized')
+      && isOptBool(data, 'isActiveInDepartment')
+      && data.consentToContact is bool
+      && data.consentToContactDateLong is string && data.consentToContactDateLong.size() <= 60
+      && data.consentToRecord is bool
+      && isOptString(data, 'recordedById', 128)
+      && data.recordedByName is string && data.recordedByName.size() > 0 && data.recordedByName.size() <= 150
+      && isOptString(data, 'recordedByPhone', 30)
+      && isOptString(data, 'observation', 1500)
+      && isOptString(data, 'assignedTeamId', 128)
+      && isOptString(data, 'assignedTeamName', 100)
+      && isOptString(data, 'assignedAccompagnateurId', 128)
+      && isOptString(data, 'assignedAccompagnateurName', 200)
+      && (data.followUpState in ['en_attente_decision', 'ouvert', 'ferme'])
+      && isOptString(data, 'closureReason', 150)
+      && isOptString(data, 'closureReasonOther', 500)
+      && isOptString(data, 'closedByName', 150)
+      && isOptString(data, 'closedAtDateLong', 60)
+      && isOptString(data, 'openedByName', 150)
+      && isOptString(data, 'openedAtDateLong', 60)
+      && (!('discipulat' in data) || data.discipulat is map)
+      && data.createdAt is string && data.createdAt.size() <= 50
+      && data.updatedAt is string && data.updatedAt.size() <= 50;
     }
 
-    function isValidPrayerCell(data) {
-      return data.keys().hasAll(['name', 'neighborhood', 'leaderName', 'leaderPhone'])
-      && data.name is string && data.name.size() > 0 && data.name.size() <= 100
-      && data.neighborhood is string && data.neighborhood.size() > 0 && data.neighborhood.size() <= 100
-      && data.leaderName is string && data.leaderName.size() > 0 && data.leaderName.size() <= 100
-      && data.leaderPhone is string && data.leaderPhone.size() > 0 && data.leaderPhone.size() <= 30;
+    function isValidFollowUp(data) {
+      return data.keys().hasAll([
+        'soulId', 'soulName', 'accompagnateurId', 'accompagnateurName',
+        'year', 'month', 'contactFrequency', 'plefP', 'plefL', 'plefE', 'plefF',
+        'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'id', 'soulId', 'soulName', 'teamId', 'teamName', 'accompagnateurId', 'accompagnateurName',
+        'year', 'month', 'contactFrequency', 'plefP', 'plefL', 'plefE', 'plefF',
+        'rex', 'rexDateShort', 'report', 'reportUpdatedAt', 'createdAt', 'updatedAt'
+      ])
+      && data.soulId is string && data.soulId.size() > 0 && data.soulId.size() <= 128
+      && data.soulName is string && data.soulName.size() > 0 && data.soulName.size() <= 200
+      && isOptString(data, 'teamId', 128)
+      && isOptString(data, 'teamName', 100)
+      && data.accompagnateurId is string && data.accompagnateurId.size() > 0 && data.accompagnateurId.size() <= 128
+      && data.accompagnateurName is string && data.accompagnateurName.size() > 0 && data.accompagnateurName.size() <= 200
+      && data.year is number && data.year >= 2020 && data.year <= 2100
+      && data.month is number && data.month >= 1 && data.month <= 12
+      && (data.contactFrequency in ['0/M', '1/M', '2/M', '3/M', '1/S', '2/S', '3/S'])
+      && data.plefP is number && data.plefP >= 0 && data.plefP <= 5
+      && data.plefL is number && data.plefL >= 0 && data.plefL <= 5
+      && data.plefE is number && data.plefE >= 0 && data.plefE <= 5
+      && data.plefF is number && data.plefF >= 0 && data.plefF <= 5
+      && isOptString(data, 'rex', 1500)
+      && isOptString(data, 'rexDateShort', 50)
+      && isOptString(data, 'report', 2500)
+      && isOptString(data, 'reportUpdatedAt', 50)
+      && data.createdAt is string && data.createdAt.size() <= 50
+      && data.updatedAt is string && data.updatedAt.size() <= 50;
     }
 
-    // New souls collection - Real-time multi-user collaborative sync
+    match /hosts/{hostId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(hostId) && isValidHost(incoming());
+      allow delete: if isValidId(hostId);
+    }
+
+    match /teams/{teamId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(teamId) && isValidTeam(incoming());
+      allow delete: if isValidId(teamId);
+    }
+
     match /newSouls/{soulId} {
       allow get, list: if true;
-      allow create, update: if isValidId(soulId) && isValidNewSoul(request.resource.data);
-      allow delete: if true;
+      allow create, update: if isValidId(soulId) && isValidNewSoul(incoming());
+      allow delete: if isValidId(soulId);
     }
 
-    // Prayer cells collection
-    match /prayerCells/{cellId} {
+    match /followUps/{followUpId} {
       allow get, list: if true;
-      allow create, update: if isValidId(cellId) && isValidPrayerCell(request.resource.data);
-      allow delete: if true;
+      allow create, update: if isValidId(followUpId) && isValidFollowUp(incoming());
+      allow delete: if isValidId(followUpId);
     }
 
-    // Admins registry
-    match /admins/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+    // Health check document
+    match /test/connection {
+      allow get: if true;
     }
   }
 }
