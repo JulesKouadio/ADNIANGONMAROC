@@ -46,7 +46,7 @@ function stripUndefined<T extends Record<string, any>>(obj: T): T {
 
 function normalizeLegacySoul(raw: any, id: string): NewSoul {
   const nowShort = formatShortDateFr(new Date());
-  const defaultDiscipulat: DiscipleshipInfo = {
+  const defaultDiscipolat: DiscipleshipInfo = {
     status: 'En attente',
     quality: 'Nouveau',
     basicCourse: 'Non',
@@ -100,7 +100,7 @@ function normalizeLegacySoul(raw: any, id: string): NewSoul {
     closedAtDateLong: raw.closedAtDateLong || '',
     openedByName: raw.openedByName || '',
     openedAtDateLong: raw.openedAtDateLong || '',
-    discipulat: raw.discipulat ? { ...defaultDiscipulat, ...raw.discipulat } : defaultDiscipulat,
+    discipolat: raw.discipolat ? { ...defaultDiscipolat, ...raw.discipolat } : defaultDiscipolat,
     createdAt: raw.createdAt || new Date().toISOString(),
     updatedAt: raw.updatedAt || new Date().toISOString(),
   };
@@ -162,7 +162,7 @@ interface ChurchContextType {
   assignSoulToAccompagnateur: (soulId: string, hostId: string) => Promise<void>;
   openSoulFollowUp: (soulId: string) => Promise<void>;
   closeSoulFollowUp: (soulId: string, reason: string, reasonOther?: string) => Promise<void>;
-  updateSoulDiscipleship: (soulId: string, discipulat: DiscipleshipInfo) => Promise<void>;
+  updateSoulDiscipleship: (soulId: string, discipolat: DiscipleshipInfo) => Promise<void>;
 
   // Monthly follow-up mutations (PLEF, REX, Reports)
   upsertMonthlyFollowUp: (
@@ -717,7 +717,7 @@ export const ChurchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       id: soulId,
       normalizedPhone: normPhone,
       followUpState: 'en_attente_decision',
-      discipulat: data.discipulat || {
+      discipolat: data.discipolat || {
         status: 'En attente',
         quality: 'Nouveau',
         basicCourse: 'Non',
@@ -850,8 +850,8 @@ export const ChurchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
-  const updateSoulDiscipleship = async (soulId: string, discipulat: DiscipleshipInfo) => {
-    await updateSoul(soulId, { discipulat });
+  const updateSoulDiscipleship = async (soulId: string, discipolat: DiscipleshipInfo) => {
+    await updateSoul(soulId, { discipolat });
   };
 
   // Monthly follow-ups
@@ -931,8 +931,8 @@ export const ChurchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       'Équipe Assignée',
       'Accompagnateur Assigné',
       'État Suivi',
-      'Statut Discipulat',
-      'Qualité Discipulat',
+      'Statut Discipolat',
+      'Qualité Discipolat',
       'Cours de base',
       'Catéchisme',
       'Département',
@@ -980,11 +980,11 @@ export const ChurchProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       esc(s.assignedTeamName || 'Non assignée'),
       esc(s.assignedAccompagnateurName || 'Non assigné'),
       esc(s.followUpState),
-      esc(s.discipulat?.status || 'En attente'),
-      esc(s.discipulat?.quality || 'Nouveau'),
-      esc(s.discipulat?.basicCourse || 'Non'),
-      esc(s.discipulat?.catechism || 'Non'),
-      esc(s.discipulat?.department || '-'),
+      esc(s.discipolat?.status || 'En attente'),
+      esc(s.discipolat?.quality || 'Nouveau'),
+      esc(s.discipolat?.basicCourse || 'Non'),
+      esc(s.discipolat?.catechism || 'Non'),
+      esc(s.discipolat?.department || '-'),
       esc(s.recordedByName),
       esc(s.observation || '-'),
     ]);

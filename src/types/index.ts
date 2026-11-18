@@ -134,8 +134,8 @@ export interface NewSoul {
   closedAtDateLong?: string;
   openedByName?: string;
   openedAtDateLong?: string;
-  // Discipulat
-  discipulat?: DiscipleshipInfo;
+  // Discipolat
+  discipolat?: DiscipleshipInfo;
   createdAt: string;
   updatedAt: string;
 }

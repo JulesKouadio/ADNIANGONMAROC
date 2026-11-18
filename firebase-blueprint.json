@@ -105,7 +105,7 @@
         "closedAtDateLong": { "type": "string", "maxLength": 60 },
         "openedByName": { "type": "string", "maxLength": 150 },
         "openedAtDateLong": { "type": "string", "maxLength": 60 },
-        "discipulat": { "type": "object" },
+        "discipolat": { "type": "object" },
         "createdAt": { "type": "string", "maxLength": 50 },
         "updatedAt": { "type": "string", "maxLength": 50 }
       },

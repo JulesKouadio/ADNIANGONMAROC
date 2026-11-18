@@ -25,13 +25,13 @@ export const DashboardStats: React.FC = () => {
   const memberCount = souls.filter((s) => s.isAssemblyMember).length;
   const baptizedInitialCount = souls.filter((s) => s.isBaptized).length;
 
-  // Discipulat
-  const basicValidated = souls.filter((s) => s.discipulat?.basicCourse === 'Validé').length;
-  const catechismValidated = souls.filter((s) => s.discipulat?.catechism === 'Validé').length;
+  // Discipolat
+  const basicValidated = souls.filter((s) => s.discipolat?.basicCourse === 'Validé').length;
+  const catechismValidated = souls.filter((s) => s.discipolat?.catechism === 'Validé').length;
   const discBaptizedValid = souls.filter(
-    (s) => s.discipulat?.isBaptized && s.discipulat?.baptismValidity === 'Valide'
+    (s) => s.discipolat?.isBaptized && s.discipolat?.baptismValidity === 'Valide'
   ).length;
-  const integratedDept = souls.filter((s) => Boolean(s.discipulat?.department)).length;
+  const integratedDept = souls.filter((s) => Boolean(s.discipolat?.department)).length;
 
   // Rapports & Délais
   const totalMonthlyEntries = followUps.length;
@@ -108,7 +108,7 @@ export const DashboardStats: React.FC = () => {
         </div>
       </div>
 
-      {/* Second row: Contexte d'accueil, Qualités Discipulat, Validation & PLEF */}
+      {/* Second row: Contexte d'accueil, Qualités Discipolat, Validation & PLEF */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Contextes d'accueil */}
         <div className="bg-white p-5 rounded-[5px] border border-slate-300 space-y-3">
@@ -130,15 +130,15 @@ export const DashboardStats: React.FC = () => {
           </div>
         </div>
 
-        {/* Discipulat Qualités */}
+        {/* Discipolat Qualités */}
         <div className="bg-white p-5 rounded-[5px] border border-slate-300 space-y-3">
           <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950 border-b border-slate-200 pb-2">
-            Qualités Discipulat
+            Qualités Discipolat
           </h2>
           <div className="grid grid-cols-2 gap-2 text-xs">
             {DISCIPLESHIP_QUALITIES.map((q) => {
               const count = souls.filter(
-                (s) => (s.discipulat?.quality || 'Nouveau') === q
+                (s) => (s.discipolat?.quality || 'Nouveau') === q
               ).length;
               return (
                 <div
@@ -165,7 +165,7 @@ export const DashboardStats: React.FC = () => {
             </strong>
           </div>
           <div className="flex justify-between">
-            <span>Baptisés (Accueil / Discipulat valide)</span>
+            <span>Baptisés (Accueil / Discipolat valide)</span>
             <strong className="font-mono tabular-nums">
               {baptizedInitialCount} / {discBaptizedValid}
             </strong>
@@ -254,7 +254,7 @@ export const DashboardStats: React.FC = () => {
           </h2>
           <div className="space-y-1.5 text-xs max-h-56 overflow-y-auto">
             {ASSEMBLEE_DEPARTMENTS.map((dep) => {
-              const count = souls.filter((s) => s.discipulat?.department === dep).length;
+              const count = souls.filter((s) => s.discipolat?.department === dep).length;
               return (
                 <div key={dep} className="flex items-center justify-between">
                   <span className="text-slate-700">{dep}</span>

@@ -1,12 +1,11 @@
 {
-  "projectId": "famille-nehemie-ad-maroc",
-  "appId": "1:414627261647:web:92e71e295e2b03c5325bba",
-  "apiKey": "AIzaSyDbYUm3HI5Qu2zds5bGQyRVccCZFgEP1bw",
-  "authDomain": "famille-nehemie-ad-maroc.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-9b8cac6b-09b5-4637-94db-8f81daf87fcd",
-  "storageBucket": "famille-nehemie-ad-maroc.firebasestorage.app",
-  "messagingSenderId": "414627261647",
-  "measurementId": "",
-  "oAuthClientId": "414627261647-iktupqg74dep4ii17n3vobii1s2006hj.apps.googleusercontent.com",
-  "recaptchaSiteKey": ""
+    "projectId":  "admaroc-nouvelle-ame",
+    "appId":  "1:99007264825:web:e5a5cf9cec2ab982f4b5e8",
+    "storageBucket":  "admaroc-nouvelle-ame.firebasestorage.app",
+    "apiKey":  "AIzaSyCMONszOsENDdFXKx_yh2FnD37yzf9VFYI",
+    "authDomain":  "admaroc-nouvelle-ame.firebaseapp.com",
+    "messagingSenderId":  "99007264825",
+    "projectNumber":  "99007264825",
+    "version":  "2",
+    "firestoreDatabaseId":  "(default)"
 }

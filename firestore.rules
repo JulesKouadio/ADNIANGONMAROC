@@ -79,7 +79,7 @@ service cloud.firestore {
         'recordedById', 'recordedByName', 'recordedByPhone', 'observation',
         'assignedTeamId', 'assignedTeamName', 'assignedAccompagnateurId', 'assignedAccompagnateurName',
         'followUpState', 'closureReason', 'closureReasonOther', 'closedByName', 'closedAtDateLong',
-        'openedByName', 'openedAtDateLong', 'discipulat', 'createdAt', 'updatedAt'
+        'openedByName', 'openedAtDateLong', 'discipolat', 'createdAt', 'updatedAt'
       ])
       && (data.accueilMode in ['express', 'long'])
       && (data.welcomeContextType in ['Culte', 'Réunion du soir', "Campagne d'évangélisation", "Semaine d'accentuation"])
@@ -125,7 +125,7 @@ service cloud.firestore {
       && isOptString(data, 'closedAtDateLong', 60)
       && isOptString(data, 'openedByName', 150)
       && isOptString(data, 'openedAtDateLong', 60)
-      && (!('discipulat' in data) || data.discipulat is map)
+      && (!('discipolat' in data) || data.discipolat is map)
       && data.createdAt is string && data.createdAt.size() <= 50
       && data.updatedAt is string && data.updatedAt.size() <= 50;
     }

@@ -383,7 +383,7 @@ export const SoulsList: React.FC<SoulsListProps> = ({
                   <th className="py-2.5 px-3 border-r border-slate-300 whitespace-nowrap">Équipe d'accompagnement</th>
                   <th className="py-2.5 px-3 border-r border-slate-300 whitespace-nowrap">Accompagnateur</th>
                   <th className="py-2.5 px-3 border-r border-slate-300 whitespace-nowrap">État Suivi</th>
-                  <th className="py-2.5 px-3 border-r border-slate-300 whitespace-nowrap">Discipulat</th>
+                  <th className="py-2.5 px-3 border-r border-slate-300 whitespace-nowrap">Discipolat</th>
                   <th className="py-2.5 px-3 border-r border-slate-300 whitespace-nowrap">Enregistré par</th>
                   <th className="py-2.5 px-3 whitespace-nowrap text-center sticky right-0 z-20 bg-slate-100">
                     Actions
@@ -528,8 +528,8 @@ export const SoulsList: React.FC<SoulsListProps> = ({
                       </td>
 
                       <td className="py-2.5 px-3 border-r border-slate-200 whitespace-nowrap text-slate-700">
-                        {soul.discipulat?.status || 'En attente'} ·{' '}
-                        <strong>{soul.discipulat?.quality || 'Nouveau'}</strong>
+                        {soul.discipolat?.status || 'En attente'} ·{' '}
+                        <strong>{soul.discipolat?.quality || 'Nouveau'}</strong>
                       </td>
 
                       <td className="py-2.5 px-3 border-r border-slate-200 whitespace-nowrap text-slate-700">
@@ -579,7 +579,7 @@ export const SoulsList: React.FC<SoulsListProps> = ({
                             <button
                               type="button"
                               onClick={() => onOpenFollowUpForSoul(soul)}
-                              title="Tableau de bord & Discipulat"
+                              title="Tableau de bord & Discipolat"
                               className="p-1 text-indigo-900 hover:bg-indigo-100 rounded-[5px]"
                             >
                               <ClipboardList className="w-3.5 h-3.5" />

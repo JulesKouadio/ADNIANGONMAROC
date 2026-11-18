@@ -149,7 +149,7 @@ export const FollowUpWorkspace: React.FC<FollowUpWorkspaceProps> = ({ initialSou
     }
   }, [selectedSoul?.id, entryYear, entryMonth, soulFollowUpsAsc]);
 
-  // Discipulat state
+  // Discipolat state
   const [discStatus, setDiscStatus] = useState<DiscipleshipStatus>('En attente');
   const [firstContactDateLong, setFirstContactDateLong] = useState<string>('');
   const [discQuality, setDiscQuality] = useState<DiscipleshipQuality>('Nouveau');
@@ -167,7 +167,7 @@ export const FollowUpWorkspace: React.FC<FollowUpWorkspaceProps> = ({ initialSou
 
   useEffect(() => {
     if (!selectedSoul) return;
-    const d = selectedSoul.discipulat;
+    const d = selectedSoul.discipolat;
     setDiscStatus(d?.status || 'En attente');
     setFirstContactDateLong(d?.firstContactDateLong || '');
     setDiscQuality(d?.quality || 'Nouveau');
@@ -243,7 +243,7 @@ export const FollowUpWorkspace: React.FC<FollowUpWorkspaceProps> = ({ initialSou
 
     try {
       await updateSoulDiscipleship(selectedSoul.id, nextInfo);
-      setDiscMessage('Parcours de Discipulat sauvegardé.');
+      setDiscMessage('Parcours de Discipolat sauvegardé.');
     } catch (err) {
       setDiscMessage(err instanceof Error ? err.message : 'Erreur lors de la mise à jour.');
     } finally {
@@ -273,10 +273,10 @@ export const FollowUpWorkspace: React.FC<FollowUpWorkspaceProps> = ({ initialSou
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-            Tableaux de Bord de Suivi, Discipulat & Synthèse
+            Tableaux de Bord de Suivi, Discipolat & Synthèse
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Suivez la croissance spirituelle (PLEF), le discipulat et visualisez l'évolution mensuelle.
+            Suivez la croissance spirituelle (PLEF), le discipolat et visualisez l'évolution mensuelle.
           </p>
         </div>
 
@@ -319,7 +319,7 @@ export const FollowUpWorkspace: React.FC<FollowUpWorkspaceProps> = ({ initialSou
                 subTab === 'dashboard' ? 'bg-indigo-900 text-white' : 'text-slate-700'
               }`}
             >
-              Tableau de bord & Discipulat
+              Tableau de bord & Discipolat
             </button>
             <button
               type="button"
@@ -619,10 +619,10 @@ export const FollowUpWorkspace: React.FC<FollowUpWorkspaceProps> = ({ initialSou
                 </div>
               </div>
 
-              {/* 2. Module Discipulat */}
+              {/* 2. Module Discipolat */}
               <div className="bg-white rounded-[5px] border border-slate-200 p-5 shadow-2xs">
                 <h2 className="text-sm font-bold uppercase tracking-wider text-indigo-950 border-b border-slate-200 pb-2.5 mb-4">
-                  2. Discipulat (Parcours de Foi)
+                  2. Discipolat (Parcours de Foi)
                 </h2>
 
                 {discMessage && (
@@ -849,7 +849,7 @@ export const FollowUpWorkspace: React.FC<FollowUpWorkspaceProps> = ({ initialSou
                       className="inline-flex items-center space-x-1.5 px-4 py-2 bg-indigo-900 hover:bg-indigo-800 text-white rounded-[5px] text-xs font-bold"
                     >
                       <Save className="w-3.5 h-3.5" />
-                      <span>{savingDisc ? 'Sauvegarde...' : 'Enregistrer Discipulat'}</span>
+                      <span>{savingDisc ? 'Sauvegarde...' : 'Enregistrer Discipolat'}</span>
                     </button>
                   </div>
                 </form>
@@ -879,7 +879,7 @@ export const FollowUpWorkspace: React.FC<FollowUpWorkspaceProps> = ({ initialSou
                   <tr>
                     <th className="py-2 px-3 border-r border-slate-200">Nom & Prénoms</th>
                     <th className="py-2 px-3 border-r border-slate-200">Téléphone</th>
-                    <th className="py-2 px-3 border-r border-slate-200">Statut Discipulat</th>
+                    <th className="py-2 px-3 border-r border-slate-200">Statut Discipolat</th>
                     <th className="py-2 px-3 border-r border-slate-200">Qualité</th>
                     <th className="py-2 px-3 border-r border-slate-200">3 Derniers Mois (Fréquence & PLEF)</th>
                     <th className="py-2 px-3 text-center">Courbes</th>
@@ -903,10 +903,10 @@ export const FollowUpWorkspace: React.FC<FollowUpWorkspaceProps> = ({ initialSou
                           {soul.phoneNumber}
                         </td>
                         <td className="py-2.5 px-3 border-r border-slate-200 whitespace-nowrap">
-                          {soul.discipulat?.status || 'En attente'}
+                          {soul.discipolat?.status || 'En attente'}
                         </td>
                         <td className="py-2.5 px-3 border-r border-slate-200 font-semibold whitespace-nowrap">
-                          {soul.discipulat?.quality || 'Nouveau'}
+                          {soul.discipolat?.quality || 'Nouveau'}
                         </td>
                         <td className="py-2.5 px-3 border-r border-slate-200">
                           {last3.length === 0 ? (
